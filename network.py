@@ -5,6 +5,7 @@ from typing import Union, List
 
 from utilities import *
 from collections import deque
+from queue import PriorityQueue
 import itertools
 
 # for parallel computations
@@ -410,6 +411,38 @@ class Network:
         # is compact code-wise but removing redundant paths later is more expensive
         # globPathList = self.removeDominatedPaths(globPathList)
         # exit(0)
+        return globPathList
+    
+    def dsPath(self, src, dest, EB: float = float('inf'), PB: float = float('inf')) -> List[Path]:
+        pq = PriorityQueue()
+        pq.put((0, src, [], 0, 0))  # (current_time, current_node, current_path, current_energy, current_price)
+
+        shortest_paths = {src: (0, [], 0, 0)}  # cost, path_edges, energy spent, price spent
+
+        while not pq.empty():
+            currTime, currNode, currPath, currEnergy, currPrice = pq.get()
+
+            # If we reached the destination
+            if currNode == dest:
+                potential_path = Path(currPath, src)  # Creating the path
+                if currEnergy <= EB and currPrice <= PB:
+                    globPathList.append(potential_path)
+                    return globPathList
+
+            # Visiting each neighbor of the current node
+            for outedge in currNode.outgoing_edges:
+                neighbor = outedge.node_to
+                updatedTime = currTime + outedge.tau
+                updatedEnergy = currEnergy + outedge.ec
+                updatedPrice = currPrice + outedge.price
+                updatedPath = currPath + [outedge]
+
+                # Checking if we have a new node or if we are getting a faster route
+                if (neighbor not in shortest_paths or updatedTime < shortest_paths[neighbor][0]) and updatedEnergy <= EB and updatedPrice <= PB:
+                    shortest_paths[neighbor] = (updatedTime, updatedPath, updatedEnergy, updatedPrice)
+                    pq.put((updatedTime, neighbor, updatedPath, updatedEnergy, updatedPrice))
+
+        
         return globPathList
 
 

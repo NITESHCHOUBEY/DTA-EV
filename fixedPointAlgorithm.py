@@ -8,40 +8,115 @@ from scipy import optimize
 import sys, time
 import numpy as np
 
-def findShortestSTpath(s: Node, t: Node, flow: PartialFlow, time: number) -> Path:
-    (arrivalTimes, realizedTimes) = dynamic_dijkstra(time, s, t, flow)
-    p = Path([], t)
-    while p.getStart() != s:
-        v = p.getStart()
-        for e in v.incoming_edges:
-            if e in realizedTimes and arrivalTimes[e.node_from] + realizedTimes[e] == arrivalTimes[v]:
-                p.add_edge_at_start(e)
-                break
-    return p
+# def findShortestSTpath(s: Node, t: Node, flow: PartialFlow, time: number) -> Path:
+#     (arrivalTimes, realizedTimes) = dynamic_dijkstra(time, s, t, flow)
+#     p = Path([], t)
+#     while p.getStart() != s:
+#         v = p.getStart()
+#         for e in v.incoming_edges:
+#             if e in realizedTimes and arrivalTimes[e.node_from] + realizedTimes[e] == arrivalTimes[v]:
+#                 p.add_edge_at_start(e)
+#                 break
+#     return p
 
 
-def findShortestFeasibleSTpath(time: number, s: Node, t: Node, flow:
-        PartialFlow, budget: number) -> Path:
-    (arrivalTimes, realizedTimes) = dynamicFeasDijkstra(time, s, t, flow, budget)
-    for i in enumerate(arrivalTimes):
-        print("times ", i, i[0], i[1])
-    for i in enumerate(realizedTimes):
-        print("times ", i, i[0], i[1])
-    p = Path([], t)
-    while p.getStart() != s:
-        v = p.getStart()
-        for e in v.incoming_edges:
-            if e in realizedTimes and arrivalTimes[e.node_from] + realizedTimes[e] == arrivalTimes[v]:
-                p.add_edge_at_start(e)
-                break
+# def findShortestFeasibleSTpath(time: number, s: Node, t: Node, flow:
+#         PartialFlow, budget: number) -> Path:
+#     (arrivalTimes, realizedTimes) = dynamicFeasDijkstra(time, s, t, flow, budget)
+#     for i in enumerate(arrivalTimes):
+#         print("times ", i, i[0], i[1])
+#     for i in enumerate(realizedTimes):
+#         print("times ", i, i[0], i[1])
+#     p = Path([], t)
+#     while p.getStart() != s:
+#         v = p.getStart()
+#         for e in v.incoming_edges:
+#             if e in realizedTimes and arrivalTimes[e.node_from] + realizedTimes[e] == arrivalTimes[v]:
+#                 p.add_edge_at_start(e)
+#                 break
 
-    print("shortest ST path ", printPathInNetwork(p, flow.network))
-    return p
+#     print("shortest ST path ", printPathInNetwork(p, flow.network))
+#     return p
+
+class PrioritizedItem:
+    # constructing the class to create the first element for priority and store all other elements in items 
+    def __init__(self, priority, item):
+        self.priority = priority
+        self.item = item
+
+    # defining behaviour of the less than operator so that it only uses the priority to compare the objects of this class
+    def __lt__(self, other):
+        return self.priority < other.priority
+
+    # defining behaviour of equal to regarding the same 
+    def __eq__(self, other):
+        return self.priority == other.priority
 
 
-def fixedPointUpdate(currentFlow: PartialFlow, oldPathInflows: PartialFlowPathBased, timeHorizon:
+
+def calculate_cost(energy: float,price: float,time: float)->float:
+    return time+energy+price
+
+def dijkstra(nt: dict, src: Node, dest: Node, excluded_paths: set, EB: float, PB: float) -> Path:
+    # Priority queue containing (cost, time , node, path as a list, total_energy spent till that node, total_price spent till that node)
+    pq = PriorityQueue()
+    pq.put(PrioritizedItem(0, (0, src, [], 0, 0))) 
+
+    # Dictionary to store the shortest path to each node
+    shortest_paths = {src: (0,0, [], 0, 0)}  # cost(priority), time , path_edges, energy spent, price spent
+
+    while not pq.empty():
+        current_item = pq.get()
+        combined_cost = current_item.priority
+        current_time, current_node, current_path, current_energy, current_price = current_item.item
+
+        # arrived at the destination 
+        if current_node == dest:
+            potential_path = Path(current_path, src)                            # creating the path
+            if potential_path not in excluded_paths:                            # making sure we have a new path
+                if current_energy <= EB and current_price <= PB:       
+                    # print("path is ",potential_path," with energy use ",current_energy," and price ",current_price)
+                    return potential_path
+                else:
+                    continue
+
+        # Visiting each neighbor of the current node
+        for edge in current_node.outgoing_edges:
+            neighbor = edge.node_to
+            updated_time = current_time + nt[edge]
+            updated_energy = current_energy + edge.ec
+            updated_price = current_price + edge.price
+            updated_path = current_path + [edge]
+            updated_cost=calculate_cost(updated_energy,updated_price,updated_time)
+
+            # if we have a new node or if we are getting a faster route we update the dictionary shortest path and pq
+            if (neighbor not in shortest_paths or updated_cost < shortest_paths[neighbor][0]) and updated_energy <= EB and updated_price <= PB:
+                shortest_paths[neighbor] = (updated_cost , updated_time, updated_path, updated_energy, updated_price)
+                pq.put(PrioritizedItem(updated_cost, (updated_time, neighbor, updated_path, updated_energy, updated_price)))
+
+    # If no path is found, return None
+    return None
+
+def nextShortestPath(nt:dict, oldPathInFlowsCommodity: dict, src: Node, dest: Node, EB: float = infinity, PB: float = infinity) -> Path:
+    # creating a set of old path to make sure we return a new path only
+    existing_paths = set(oldPathInFlowsCommodity.keys())
+
+    # running Dijkstra's algorithm to find the next shortest path not in existing_paths and meeting EB and PB constraints
+    new_path = dijkstra(nt, src, dest, existing_paths, EB, PB)
+    
+    # If no path is found, return None
+    if new_path is None:
+        return None
+    
+    
+    return new_path
+
+
+
+
+def fixedPointUpdate(N:Network,currentFlow: PartialFlow, oldPathInflows: PartialFlowPathBased, timeHorizon:
         number, alpha: float, timestepSize, priceToTime: float, commodities, verbose:
-        bool) -> PartialFlowPathBased:
+        bool,generatedPath:List[List[Path]]) -> PartialFlowPathBased:
 
     newPathInflows = PartialFlowPathBased(oldPathInflows.network, oldPathInflows.getNoOfCommodities())
 
@@ -57,12 +132,56 @@ def fixedPointUpdate(currentFlow: PartialFlow, oldPathInflows: PartialFlowPathBa
         theta = zero
         meanIter = 0
         # We subdivide the time into intervals of length timestepSize
+
         k = -1
+        nt={e:e.tau for e in N.edges}
+        
+        curr_flow=oldPathInflows.fPlus[i]
+        paths=[]
+        flow_function=[]
+        for path,pwc in curr_flow.items():
+            paths.append(path)
+            flow_function.append(pwc)
+
         while theta < oldPathInflows.getEndOfInflow(i):
             k += 1
             # For each subinterval i we determine the dual variable v_i
             # (and assume that it will stay constant for the whole interval)
             # if verbose: print("timeinterval [", theta, ",", theta+timestepSize,"]")
+
+            for p in oldPathInflows.fPlus[i]:
+                for ed in p.edges:
+                    nt[ed]=currentFlow.c(ed,theta)
+
+            nsp=nextShortestPath(nt,oldPathInflows.fPlus[i],s,t)
+            
+            if nsp!=None:
+
+                updated_oldpathInflow=PartialFlowPathBased(N,len(commodities))
+                generatedPath[i].append(nsp)
+                paths.append(nsp)
+                flow_function.append(PWConst([0, comd[4].segmentBorders[-1]], [0], 0))
+                updated_oldpathInflow.setPaths(i,paths,flow_function)
+                oldPathInflows=updated_oldpathInflow
+
+                travelTime.append(None)
+                flowValue.append(None)
+                price.append(None)
+                
+                # print(N.printPathInNetwork(nsp)," new path at time ",theta)
+
+            # else:
+                # print("No new feasible path")
+
+
+            
+
+
+
+
+
+
+
 
 	    # Set up the update problem for each subinterval
             # Get path travel times for this subinterval
@@ -74,6 +193,10 @@ def fixedPointUpdate(currentFlow: PartialFlow, oldPathInflows: PartialFlowPathBa
                  flowValue[j] = float(fP.getValueAt(theta))
                  price[j] = P.getPrice()
 
+            
+            update_newPathInflows=PartialFlowPathBased(oldPathInflows.network, oldPathInflows.getNoOfCommodities())
+            update_newPathInflows.setPaths(i,[P for P in oldPathInflows.fPlus[i]],[PWConst([zero],[],zero) for P in oldPathInflows.fPlus[i]])
+            newPathInflows=update_newPathInflows
             # Find integral value, ubar, of (piecewise constant) function u in this
             # subinterval
             ubar = comd[4].integrate(theta, theta + timestepSize)
@@ -282,8 +405,49 @@ def fixedPointAlgo(N : Network, pathList : List[Path], precision : float, commod
         if verbose: print("STARTING ITERATION #", step)
         tStart = time.time()
         # TODO: Read priceToTime as input per commodity
-        newpathInflows, alpha = fixedPointUpdate(iterFlow, pathInflows, timeHorizon, alpha,
-                timeStep, priceToTime, commodities, verbose)
+        genPaths=[[]*len(commodities)]
+        newpathInflows, alpha = fixedPointUpdate(N,iterFlow, pathInflows, timeHorizon, alpha,
+                timeStep, priceToTime, commodities, verbose,genPaths)
+        
+
+        # print("new path is")
+        # for i in range(len(commodities)):
+        #     genPaths[i]=list(set(genPaths[i]))
+        #     for p in genPaths[i]:
+        #         print(N.printPathInNetwork(p))
+        #     print(" ends here \n")
+
+        
+        print("new inflows ",newpathInflows)
+
+        # updated_newpathInflow=PartialFlowPathBased(N,len(commodities))
+
+        # for i in range(len(commodities)):
+        #     curr_flow=newpathInflows.fPlus[i]
+        #     paths=[]
+        #     flow_function=[]
+        #     for path,pwc in curr_flow.items():
+        #         paths.append(path)
+        #         flow_function.append(pwc)
+            
+        #     for p in genPaths[i]:
+        #         paths.append(p)
+        #         flow_function.append(PWConst([0, u.segmentBorders[-1]], [0], 0))
+
+        #     updated_newpathInflow.setPaths(i,paths,flow_function)
+
+        # newpathInflows=updated_newpathInflow
+
+        # print("updated \t",updated_newpathInflow)
+        
+
+
+
+
+
+
+
+
         totFPUTime += time.time() - tStart
         print("\nTime taken in fixedPointUpdate(): ", round(time.time()-tStart,4))
 

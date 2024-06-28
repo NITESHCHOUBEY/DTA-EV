@@ -107,7 +107,10 @@ if __name__ == "__main__":
     for i,(s,t,energyBudget,priceBudget,u) in enumerate(commodities):
         if True: print("\nFinding paths for comm %d: %s-%s"%(i,s,t),energyBudget,priceBudget,u)
         # pathList.append(G.findPaths(s, t, energyBudget))
-        paths = G.findPathsWithLoops(s, t, energyBudget, priceBudget, numThreads)
+        # paths = G.findPathsWithLoops(s, t, energyBudget, priceBudget, numThreads)
+
+        paths = G.dsPath(s,t,energyBudget,priceBudget) #NEW dijkstra's algo shortest route
+        print("shortest physical path is ",G.printPathInNetwork(paths[0]))
         if len(paths) > 0:
             pathList.append(paths)
         else:
