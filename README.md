@@ -66,6 +66,6 @@ The networkFile for reading this network is [evExample6EdgesWR.txt](examples/toy
 
 To find an approximate equilibrium for the above mentioned inputs, we can run the following command:
 
-`python3 main.py evExample6EdgesWR.txt evExample6Comm.txt example6 50 20000 3600 0.001 0.75 0.25 0 1`
+`python3 main.py ./examples/toyExamples/evExample6EdgesWR.txt ./examples/toyExamples/evExample6Comm.txt example6 50 2 3600 0.001 0.75 0.25 0 1`
 
 
