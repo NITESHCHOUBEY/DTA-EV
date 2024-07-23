@@ -53,10 +53,10 @@ class PrioritizedItem:
         return self.priority == other.priority
 
 
-
 def calculate_cost(energy: float,price: float,time: float,alpha:float,priceToTime:float)->float:
     beta=1
     return alpha*(time+priceToTime*price)+beta*energy
+
 
 def dijkstra(nt: dict, src: Node, dest: Node, excluded_paths: set, EB: float, PB: float,alpha:float,priceToTime:float) -> Path:
     # Priority queue containing (cost, time , node, path as a list, total_energy spent till that node, total_price spent till that node)
@@ -98,6 +98,7 @@ def dijkstra(nt: dict, src: Node, dest: Node, excluded_paths: set, EB: float, PB
     # If no path is found, return None
     return None
 
+
 def nextShortestPath(nt:dict, oldPathInFlowsCommodity: dict, src: Node, dest: Node, EB: float = infinity, PB: float = infinity, alpha: float=1 ,priceToTime:float=0) -> Path:
     # creating a set of old path to make sure we return a new path only
     existing_paths = set(oldPathInFlowsCommodity.keys())
@@ -111,8 +112,6 @@ def nextShortestPath(nt:dict, oldPathInFlowsCommodity: dict, src: Node, dest: No
     
     
     return new_path
-
-
 
 
 def fixedPointUpdate(N:Network,currentFlow: PartialFlow, oldPathInflows: PartialFlowPathBased, timeHorizon:
@@ -190,16 +189,6 @@ def fixedPointUpdate(N:Network,currentFlow: PartialFlow, oldPathInflows: Partial
             # else:
             #     print("No new feasible path")
 
-
-            
-
-
-
-
-
-
-
-
 	    # Set up the update problem for each subinterval
             # Get path travel times for this subinterval
             for j,P in enumerate(oldPathInflows.fPlus[i]):
@@ -210,14 +199,12 @@ def fixedPointUpdate(N:Network,currentFlow: PartialFlow, oldPathInflows: Partial
                  flowValue[j] = float(fP.getValueAt(theta))
                  price[j] = P.getPrice()
 
-            
             # update_newPathInflows=PartialFlowPathBased(oldPathInflows.network, oldPathInflows.getNoOfCommodities())
             # update_newPathInflows.setPaths(i,[P for P in oldPathInflows.fPlus[i]],[PWConst([zero],[],zero) for P in oldPathInflows.fPlus[i]])
             # newPathInflows=update_newPathInflows
             # Find integral value, ubar, of (piecewise constant) function u in this
             # subinterval
             ubar = comd[4].integrate(theta, theta + timestepSize)
-
             
             # for j,P in enumerate(newPathInflows.fPlus[i]):
             #      fP = newPathInflows.fPlus[i][P]
@@ -308,6 +295,7 @@ def fixedPointUpdate(N:Network,currentFlow: PartialFlow, oldPathInflows: Partial
                 float(round(meanIter/(tmpVar*oldPathInflows.getEndOfInflow(i)),2)),\
                 " for ", tmpVar*oldPathInflows.getEndOfInflow(i), " subintervals")
     return newPathInflows, alpha
+
 
 def dualVarRootFunc(x, alpha, flowValue, travelTime, timestepSize, ubar):
     termSum = 0
@@ -472,14 +460,6 @@ def fixedPointAlgo(N : Network, pathList : List[Path], precision : float, commod
         # newpathInflows=updated_newpathInflow
 
         # print("updated \t",updated_newpathInflow)
-        
-
-
-
-
-
-
-
 
         totFPUTime += time.time() - tStart
         print("\nTime taken in fixedPointUpdate(): ", round(time.time()-tStart,4))
