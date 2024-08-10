@@ -74,6 +74,17 @@ class Node:
             return str(self.name)
 
 # A network consisting of a directed graph with capacities and travel times on all edges
+class PrioritizedItem:
+    def __init__(self, priority: float, item):
+        self.priority = priority
+        self.item = item
+
+    def __lt__(self, other):
+        return self.priority < other.priority
+    
+    def __eq__(self, other):
+        return self.priority == other.priority
+    
 class Network:
     edges: List[Edge]
     nodes: List[Node]
@@ -414,33 +425,45 @@ class Network:
         return globPathList
     
     def dsPath(self, src, dest, EB: float = float('inf'), PB: float = float('inf')) -> List[Path]:
+        globPathList=[]
         pq = PriorityQueue()
-        pq.put((0, src, [], 0, 0))  # (current_time, current_node, current_path, current_energy, current_price)
+        pq.put(PrioritizedItem(0, (src, [], 0, 0)))
+        # pq.put((0, src, [], 0, 0))  # (current_time, current_node, current_path, current_energy, current_price)
 
         shortest_paths = {src: (0, [], 0, 0)}  # cost, path_edges, energy spent, price spent
 
         while not pq.empty():
-            currTime, currNode, currPath, currEnergy, currPrice = pq.get()
+            store = pq.get()
+            # print(store.priority)
+            currTime = store.priority
+            currNode, currPath, currEnergy, currPrice = store.item
+            # print(currNode," ",currTime," ",pq.qsize())
 
             # If we reached the destination
             if currNode == dest:
                 potential_path = Path(currPath, src)  # Creating the path
+                # printPathInNetwork("check")
                 if currEnergy <= EB and currPrice <= PB:
                     globPathList.append(potential_path)
                     return globPathList
 
             # Visiting each neighbor of the current node
             for outedge in currNode.outgoing_edges:
+                # print(currNode," ",outedge)
                 neighbor = outedge.node_to
                 updatedTime = currTime + outedge.tau
                 updatedEnergy = currEnergy + outedge.ec
                 updatedPrice = currPrice + outedge.price
                 updatedPath = currPath + [outedge]
 
+                # print(currNode," ",neighbor," ",updatedTime," ",updatedEnergy," ",updatedPrice)
                 # Checking if we have a new node or if we are getting a faster route
-                if (neighbor not in shortest_paths or updatedTime < shortest_paths[neighbor][0]) and updatedEnergy <= EB and updatedPrice <= PB:
+                # print(neighbor not in shortest_paths," ",updatedEnergy," ",EB," ",updatedPrice <= PB)
+                    
+                if ((neighbor not in shortest_paths) or (updatedTime < shortest_paths[neighbor][0])) and updatedEnergy <= EB and updatedPrice <= PB:
+                    # print(currNode," ",neighbor," ",updatedTime," ",updatedEnergy," ",updatedPrice)
                     shortest_paths[neighbor] = (updatedTime, updatedPath, updatedEnergy, updatedPrice)
-                    pq.put((updatedTime, neighbor, updatedPath, updatedEnergy, updatedPrice))
+                    pq.put(PrioritizedItem(updatedTime, (neighbor, updatedPath, updatedEnergy, updatedPrice)))
 
         
         return globPathList
