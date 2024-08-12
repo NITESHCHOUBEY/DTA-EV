@@ -38,6 +38,8 @@ import numpy as np
 #     print("shortest ST path ", printPathInNetwork(p, flow.network))
 #     return p
 
+#countIterations=0
+
 class PrioritizedItem:
     # constructing the class to create the first element for priority and store all other elements in items 
     def __init__(self, priority, item):
@@ -54,36 +56,65 @@ class PrioritizedItem:
 
 
 def calculate_cost(energy: float,price: float,time: float,alpha:float,priceToTime:float)->float:
-    beta=1
+    beta=0
+    #alpha=1
+    #priceToTime=0
     return alpha*(time+priceToTime*price)+beta*energy
 
 
 def dijkstra(nt: dict, src: Node, dest: Node, excluded_paths: set, EB: float, PB: float,alpha:float,priceToTime:float) -> Path:
     # Priority queue containing (cost, time , node, path as a list, total_energy spent till that node, total_price spent till that node)
     pq = PriorityQueue()
-    pq.put(PrioritizedItem(0, (0, src, [], 0, 0))) 
+    pq.put(PrioritizedItem(0, (0, src, [], 0, 0, {src: 1}))) 
 
     # Dictionary to store the shortest path to each node
     shortest_paths = {src: (0,0, [], 0, 0)}  # cost(priority), time , path_edges, energy spent, price spent
-
+   # visited_in_path = {}
+    #visited_in_path = {src: []}
+   # if countIterations>30:
+    #    print("Check8")
     while not pq.empty():
+        #if countIterations>30:
+         #   print(f"Current size of the priority queue: {pq.qsize()}")
+            #print("Check10")
         current_item = pq.get()
         combined_cost = current_item.priority
-        current_time, current_node, current_path, current_energy, current_price = current_item.item
+        current_time, current_node, current_path, current_energy, current_price, visited_nodes = current_item.item
 
+        if current_node in shortest_paths and combined_cost>shortest_paths[current_node][0]:
+            continue
         # arrived at the destination 
         if current_node == dest:
             potential_path = Path(current_path, src)                            # creating the path
             if potential_path not in excluded_paths:                            # making sure we have a new path
                 if current_energy <= EB and current_price <= PB:       
                     # print("path is ",potential_path," with energy use ",current_energy," and price ",current_price)
+                    #if countIterations>30:
+                     #   print("Check9")
                     return potential_path
                 else:
                     continue
-
+        
+        
+       # if current_node in visited_in_path:
+        #    continue
+        #visited_in_path[current_node] = True
+        #if current_node not in visited_in_path:
+         #   visited_in_path[current_node] = []
         # Visiting each neighbor of the current node
         for edge in current_node.outgoing_edges:
             neighbor = edge.node_to
+           
+            new_visited_nodes = visited_nodes.copy()
+
+            # Update the visit count for the neighbor
+            if neighbor in new_visited_nodes:
+                if new_visited_nodes[neighbor] >= 2:
+                    continue  # Skip if this neighbor has already been visited twice
+                new_visited_nodes[neighbor] += 1
+            else:
+                new_visited_nodes[neighbor] = 1
+
             updated_time = current_time + nt[edge]
             updated_energy = current_energy + edge.ec
             updated_price = current_price + edge.price
@@ -93,19 +124,23 @@ def dijkstra(nt: dict, src: Node, dest: Node, excluded_paths: set, EB: float, PB
             # if we have a new node or if we are getting a faster route we update the dictionary shortest path and pq
             if (neighbor not in shortest_paths or updated_cost < shortest_paths[neighbor][0]) and updated_energy <= EB and updated_price <= PB:
                 shortest_paths[neighbor] = (updated_cost , updated_time, updated_path, updated_energy, updated_price)
-                pq.put(PrioritizedItem(updated_cost, (updated_time, neighbor, updated_path, updated_energy, updated_price)))
-
+                pq.put(PrioritizedItem(updated_cost, (updated_time, neighbor, updated_path, updated_energy, updated_price,new_visited_nodes)))
+        
+        #del visited_in_path[current_node]
     # If no path is found, return None
     return None
 
 
 def nextShortestPath(nt:dict, oldPathInFlowsCommodity: dict, src: Node, dest: Node, EB: float = infinity, PB: float = infinity, alpha: float=1 ,priceToTime:float=0) -> Path:
     # creating a set of old path to make sure we return a new path only
+    global countIterations
     existing_paths = set(oldPathInFlowsCommodity.keys())
-
+    #if countIterations>30:
+     #   print("check6")
     # running Dijkstra's algorithm to find the next shortest path not in existing_paths and meeting EB and PB constraints
     new_path = dijkstra(nt, src, dest, existing_paths, EB, PB,alpha,priceToTime)
-    
+    #if countIterations>30:
+     #   print("Check7")
     # If no path is found, return None
     if new_path is None:
         return None
@@ -119,8 +154,10 @@ def fixedPointUpdate(N:Network,currentFlow: PartialFlow, oldPathInflows: Partial
         bool,generatedPath:List[List[Path]],EB: float=infinity,PB: float=infinity) -> PartialFlowPathBased:
 
     newPathInflows = PartialFlowPathBased(oldPathInflows.network, oldPathInflows.getNoOfCommodities())
-
+    global countIterations
     # record the difference of derived times and shortest path times
+    countIterations=countIterations+1
+
     for i,comd in enumerate(commodities):
         flowValue = [None]*len(oldPathInflows.fPlus[i])
         travelTime = [None]*len(oldPathInflows.fPlus[i])
@@ -132,7 +169,8 @@ def fixedPointUpdate(N:Network,currentFlow: PartialFlow, oldPathInflows: Partial
         theta = zero
         meanIter = 0
         # We subdivide the time into intervals of length timestepSize
-
+      #  if countIterations>30:
+       #     print("Check1")
         k = -1
         nt={e:e.tau for e in N.edges}
 
@@ -150,7 +188,8 @@ def fixedPointUpdate(N:Network,currentFlow: PartialFlow, oldPathInflows: Partial
         for path,pwc in curr_flow.items():
             paths.append(path)
             flow_function.append(pwc)
-
+        #if countIterations>30:
+         #   print("check2")
         while theta < oldPathInflows.getEndOfInflow(i):
             k += 1
             # For each subinterval i we determine the dual variable v_i
@@ -160,9 +199,11 @@ def fixedPointUpdate(N:Network,currentFlow: PartialFlow, oldPathInflows: Partial
             for p in oldPathInflows.fPlus[i]:
                 for ed in p.edges:
                     nt[ed]=currentFlow.c(ed,theta)
-
+          #  if(countIterations>30):
+           #     print("check4")
             nsp=nextShortestPath(nt,oldPathInflows.fPlus[i],s,t,EB,PB,alpha,priceToTime)
-            
+            #if countIterations>30:
+             #   print("check5") 
             if nsp!=None:
 
                 updated_oldpathInflow=PartialFlowPathBased(N,len(commodities))
@@ -290,6 +331,8 @@ def fixedPointUpdate(N:Network,currentFlow: PartialFlow, oldPathInflows: Partial
                 #  print("for path ",N.printPathInNetwork(P)," flow is ",fP)
             
             theta = theta + timestepSize
+        #if(countIterations>=30):
+            #print("check3")
         tmpVar = max(timestepSize,1/timestepSize)
         if False: print("Mean # of root.scalar() iterations ",\
                 float(round(meanIter/(tmpVar*oldPathInflows.getEndOfInflow(i)),2)),\
@@ -439,7 +482,7 @@ def fixedPointAlgo(N : Network, pathList : List[Path], precision : float, commod
         #     print(" ends here \n")
 
         
-        print(" new inflows \n ",newpathInflows,"\n new inflows end")
+     #   print(" new inflows \n ",newpathInflows,"\n new inflows end")
 
         # updated_newpathInflow=PartialFlowPathBased(N,len(commodities))
 
