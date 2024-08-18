@@ -105,15 +105,15 @@ def dijkstra(nt: dict, src: Node, dest: Node, excluded_paths: set, EB: float, PB
         for edge in current_node.outgoing_edges:
             neighbor = edge.node_to
            
-            new_visited_nodes = visited_nodes.copy()
+            # new_visited_nodes = visited_nodes.copy()
 
             # Update the visit count for the neighbor
-            if neighbor in new_visited_nodes:
-                if new_visited_nodes[neighbor] >= 2:
+            if neighbor in visited_nodes:
+                if visited_nodes[neighbor] >= 2:
                     continue  # Skip if this neighbor has already been visited twice
-                new_visited_nodes[neighbor] += 1
+                visited_nodes[neighbor] += 1
             else:
-                new_visited_nodes[neighbor] = 1
+                visited_nodes[neighbor] = 1
 
             updated_time = current_time + nt[edge]
             updated_energy = current_energy + edge.ec
@@ -124,8 +124,11 @@ def dijkstra(nt: dict, src: Node, dest: Node, excluded_paths: set, EB: float, PB
             # if we have a new node or if we are getting a faster route we update the dictionary shortest path and pq
             if (neighbor not in shortest_paths or updated_cost < shortest_paths[neighbor][0]) and updated_energy <= EB and updated_price <= PB:
                 shortest_paths[neighbor] = (updated_cost , updated_time, updated_path, updated_energy, updated_price)
-                pq.put(PrioritizedItem(updated_cost, (updated_time, neighbor, updated_path, updated_energy, updated_price,new_visited_nodes)))
-        
+                pq.put(PrioritizedItem(updated_cost, (updated_time, neighbor, updated_path, updated_energy, updated_price,visited_nodes)))
+
+            visited_nodes[neighbor]-=1
+            if visited_nodes[neighbor]==0:
+                del visited_nodes[neighbor]
         #del visited_in_path[current_node]
     # If no path is found, return None
     return None
@@ -156,7 +159,7 @@ def fixedPointUpdate(N:Network,currentFlow: PartialFlow, oldPathInflows: Partial
     newPathInflows = PartialFlowPathBased(oldPathInflows.network, oldPathInflows.getNoOfCommodities())
     global countIterations
     # record the difference of derived times and shortest path times
-    countIterations=countIterations+1
+    # countIterations=countIterations+1
 
     for i,comd in enumerate(commodities):
         flowValue = [None]*len(oldPathInflows.fPlus[i])
