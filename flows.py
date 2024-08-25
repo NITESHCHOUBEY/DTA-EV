@@ -329,7 +329,38 @@ class PartialFlowPathBased:
         # Furthermore we do not know source and sink nodes yet
         self.sources = [None for _ in range(self.noOfCommodities)]
         self.sinks = [None for _ in range(self.noOfCommodities)]
-
+    
+    
+    def addPath(self, commodity: int, path: Path, flow_function: PWConst):
+        """
+        Add a new path for a specific commodity with a given flow function.
+        
+        Args:
+        commodity (int): The ID of the commodity.
+        path (Path): The new path to be added.
+        flow_function (PWConst): The flow function for the new path.
+        """
+        assert 0 <= commodity < self.noOfCommodities, "Invalid commodity ID"
+        
+        # Check if the path is valid for the commodity
+        if self.sources[commodity] is None or self.sinks[commodity] is None:
+            # If this is the first path for the commodity, set the source and sink
+            self.sources[commodity] = path.getStart()
+            self.sinks[commodity] = path.getEnd()
+        else:
+            # Check if the new path matches the existing source and sink
+            assert path.getStart() == self.sources[commodity], "Path start doesn't match commodity source"
+            assert path.getEnd() == self.sinks[commodity], "Path end doesn't match commodity sink"
+        
+        # Check if the path already exists
+        if path in self.fPlus[commodity]:
+            print(f"Warning: Path {self.network.printPathInNetwork(path)} already exists for commodity {commodity}. Updating flow function.")
+        
+        # Add or update the path with the given flow function
+        self.fPlus[commodity][path] = flow_function
+    
+#    print(f"Added new path for commodity {commodity}: {self.network.printPathInNetwork(path)}")
+#    print(f"Flow function: {flow_function}")
     # Arguments: commodity (id), paths:List[Path], pathinflows:List[PWConst]):
     def setPaths(self, commodity:int, paths:List[Path], pathinflows:List[PWConst]):
         assert (0 <= commodity < self.noOfCommodities)
@@ -349,7 +380,9 @@ class PartialFlowPathBased:
             # print(printPathInNetwork(p,self.network), fp)
             if (p in self.fPlus[commodity]):
                 print('p: ',printPathInNetwork(p,self.network))
+                # continue
                 # print('comm: ', self.fPlus[commodity])
+        
             assert (not p in self.fPlus[commodity])
             self.fPlus[commodity][p] = fp
 

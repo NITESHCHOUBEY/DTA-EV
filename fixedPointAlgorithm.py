@@ -7,6 +7,7 @@ from dynamic_dijkstra import dynamic_dijkstra
 from scipy import optimize
 import sys, time
 import numpy as np
+import copy
 
 # def findShortestSTpath(s: Node, t: Node, flow: PartialFlow, time: number) -> Path:
 #     (arrivalTimes, realizedTimes) = dynamic_dijkstra(time, s, t, flow)
@@ -133,17 +134,67 @@ def dijkstra(nt: dict, src: Node, dest: Node, excluded_paths: set, EB: float, PB
     # If no path is found, return None
     return None
 
+class PreserveReprWrapper:
+    def __init__(self, obj):
+        self.obj = obj
+        self._repr = repr(obj) 
+    
+    def __repr__(self):
+        return self._repr
+    
+    def unwrap(self):
+        return self.obj
+    
+    def __getattr__(self, attr):
+        return getattr(self.obj, attr)
+    
+    def __len__(self):
+        return len(self.obj)
+    
+    def __iter__(self):
+        return iter(self.obj)
+    
+    def __eq__(self, other):
+        if isinstance(other, PreserveReprWrapper):
+            return self.obj == other.obj
+        return self.obj == other
+
+    def __hash__(self):
+        return hash(self.obj)
+    
+    def __deepcopy__(self, memo):
+        return PreserveReprWrapper(copy.deepcopy(self.obj, memo))
+
+
+def custom_copy_partialflowpathbased(oldPathInflows):
+    
+    new_flow = PartialFlowPathBased(oldPathInflows.network, oldPathInflows.noOfCommodities)
+    
+    # Copy fPlus with the keys wrapped to preserve repr
+    for i in range(oldPathInflows.noOfCommodities):
+        new_flow.fPlus[i] = {PreserveReprWrapper(path): copy.deepcopy(pwconst)
+                             for path, pwconst in oldPathInflows.fPlus[i].items()}
+    
+    # Deep copy sources and sinks
+    new_flow.sources = copy.deepcopy(oldPathInflows.sources)
+    new_flow.sinks = copy.deepcopy(oldPathInflows.sinks)
+    
+    # Deep copy u (network inflow rates)
+    new_flow.u = [copy.deepcopy(u) for u in oldPathInflows.u]
+    
+    return new_flow
+
+
+
 
 def nextShortestPath(nt:dict, oldPathInFlowsCommodity: dict, src: Node, dest: Node, EB: float = infinity, PB: float = infinity, alpha: float=1 ,priceToTime:float=0) -> Path:
     # creating a set of old path to make sure we return a new path only
-    global countIterations
+    # global countIterations
     existing_paths = set(oldPathInFlowsCommodity.keys())
-    #if countIterations>30:
-     #   print("check6")
+
     # running Dijkstra's algorithm to find the next shortest path not in existing_paths and meeting EB and PB constraints
     new_path = dijkstra(nt, src, dest, existing_paths, EB, PB,alpha,priceToTime)
-    #if countIterations>30:
-     #   print("Check7")
+
     # If no path is found, return None
     if new_path is None:
         return None
@@ -156,12 +207,18 @@ def fixedPointUpdate(N:Network,currentFlow: PartialFlow, oldPathInflows: Partial
         number, alpha: float, timestepSize, priceToTime: float, commodities, verbose:
         bool,generatedPath:List[List[Path]],EB: float=infinity,PB: float=infinity) -> PartialFlowPathBased:
 
+    # for i,_ in enumerate(commodities):
+    #     original_paths = list(oldPathInflows.fPlus[i].keys())
+    #     print("initial ", original_paths)
     newPathInflows = PartialFlowPathBased(oldPathInflows.network, oldPathInflows.getNoOfCommodities())
-    global countIterations
-    # record the difference of derived times and shortest path times
-    # countIterations=countIterations+1
+
+    nt={e:e.tau for e in N.edges}
+
 
     for i,comd in enumerate(commodities):
+
+        original_oldPathInflows = custom_copy_partialflowpathbased(oldPathInflows)
+
         flowValue = [None]*len(oldPathInflows.fPlus[i])
         travelTime = [None]*len(oldPathInflows.fPlus[i])
         price = [None]*len(oldPathInflows.fPlus[i])
@@ -171,11 +228,9 @@ def fixedPointUpdate(N:Network,currentFlow: PartialFlow, oldPathInflows: Partial
         t = newPathInflows.sinks[i]
         theta = zero
         meanIter = 0
-        # We subdivide the time into intervals of length timestepSize
-      #  if countIterations>30:
-       #     print("Check1")
+
         k = -1
-        nt={e:e.tau for e in N.edges}
+
 
         fl=newPathInflows.fPlus[i]
         npaths=[]
@@ -185,29 +240,37 @@ def fixedPointUpdate(N:Network,currentFlow: PartialFlow, oldPathInflows: Partial
             npaths.append(p)
             nff.append(pc)
         
-        curr_flow=oldPathInflows.fPlus[i]
-        paths=[]
-        flow_function=[]
-        for path,pwc in curr_flow.items():
-            paths.append(path)
-            flow_function.append(pwc)
-        #if countIterations>30:
-         #   print("check2")
+        paths = list(oldPathInflows.fPlus[i].keys())
+        flow_function = list(oldPathInflows.fPlus[i].values())
+
+        
+        itera=1
+
+
         while theta < oldPathInflows.getEndOfInflow(i):
             k += 1
             # For each subinterval i we determine the dual variable v_i
             # (and assume that it will stay constant for the whole interval)
             # if verbose: print("timeinterval [", theta, ",", theta+timestepSize,"]")
+            # print(i," ",itera)
+
+            # for keyed, plst in currentFlow.queues.items():
+            #     print(f"Key: {keyed} (Address: {repr(keyed)}) -> Value: {plst}")
+            
+            # print("Key in dictionary:", repr(list(currentFlow.queues.keys())[0]))
 
             for p in oldPathInflows.fPlus[i]:
                 for ed in p.edges:
                     nt[ed]=currentFlow.c(ed,theta)
+            itera+=1
           #  if(countIterations>30):
            #     print("check4")
             nsp=nextShortestPath(nt,oldPathInflows.fPlus[i],s,t,EB,PB,alpha,priceToTime)
             #if countIterations>30:
              #   print("check5") 
             if nsp!=None:
+
+                # print(i," ",nsp," check ",theta)
 
                 updated_oldpathInflow=PartialFlowPathBased(N,len(commodities))
                 generatedPath[i].append(nsp)
@@ -224,11 +287,8 @@ def fixedPointUpdate(N:Network,currentFlow: PartialFlow, oldPathInflows: Partial
                 npaths.append(nsp)
                 nff.append(PWConst([zero],[],zero))
 
-                update_newPathInflows=PartialFlowPathBased(oldPathInflows.network, oldPathInflows.getNoOfCommodities())
-                update_newPathInflows.setPaths(i,npaths,nff)
-                newPathInflows=update_newPathInflows
                 
-                # print(N.printPathInNetwork(nsp)," new path at time ",theta)
+                newPathInflows.addPath(i,nsp,PWConst([zero],[],zero))
 
             # else:
             #     print("No new feasible path")
@@ -243,9 +303,6 @@ def fixedPointUpdate(N:Network,currentFlow: PartialFlow, oldPathInflows: Partial
                  flowValue[j] = float(fP.getValueAt(theta))
                  price[j] = P.getPrice()
 
-            # update_newPathInflows=PartialFlowPathBased(oldPathInflows.network, oldPathInflows.getNoOfCommodities())
-            # update_newPathInflows.setPaths(i,[P for P in oldPathInflows.fPlus[i]],[PWConst([zero],[],zero) for P in oldPathInflows.fPlus[i]])
-            # newPathInflows=update_newPathInflows
             # Find integral value, ubar, of (piecewise constant) function u in this
             # subinterval
             ubar = comd[4].integrate(theta, theta + timestepSize)
@@ -328,18 +385,16 @@ def fixedPointUpdate(N:Network,currentFlow: PartialFlow, oldPathInflows: Partial
                 # print(f" for path {N.printPathInNetwork(P)} flow is {flowValue[j]:.2f} travel time {travelTime[j]:.2f} ans sol ,{sol.root:.2f} finally newflowval {newFlowVal:.2f}")
 
                 newPathInflows.fPlus[i][P].addSegment(makeNumber(theta+timestepSize), makeNumber(newFlowVal))
-            
-            # for j,P in enumerate(newPathInflows.fPlus[i]):
-                #  fP = newPathInflows.fPlus[i][P]
-                #  print("for path ",N.printPathInNetwork(P)," flow is ",fP)
-            
+
             theta = theta + timestepSize
-        #if(countIterations>=30):
-            #print("check3")
+
         tmpVar = max(timestepSize,1/timestepSize)
         if False: print("Mean # of root.scalar() iterations ",\
                 float(round(meanIter/(tmpVar*oldPathInflows.getEndOfInflow(i)),2)),\
                 " for ", tmpVar*oldPathInflows.getEndOfInflow(i), " subintervals")
+            
+        oldPathInflows = custom_copy_partialflowpathbased(original_oldPathInflows)
+    
     return newPathInflows, alpha
 
 
@@ -472,10 +527,17 @@ def fixedPointAlgo(N : Network, pathList : List[Path], precision : float, commod
         if verbose: print("STARTING ITERATION #", step)
         tStart = time.time()
         # TODO: Read priceToTime as input per commodity
-        genPaths=[[]*len(commodities)]
+        genPaths = [[] for _ in range(len(commodities))]
+        # print(f"i: {i}, len(generatedPath): {len(commodities)}")
+        # for i,_ in enumerate(commodities):
+        #     original_paths = list(pathInflows.fPlus[i].keys())
+        #     print("verify lengths:",original_paths)
         newpathInflows, alpha = fixedPointUpdate(N,iterFlow, pathInflows, timeHorizon, alpha,
                 timeStep, priceToTime, commodities, verbose,genPaths,EB,PB)
         
+        # original_paths = list(newpathInflows.fPlus[i].keys())
+        # print("Original path lengths:", [len(P) for P in original_paths])
+
 
         # print("new path is")
         # for i in range(len(commodities)):
@@ -593,7 +655,19 @@ def fixedPointAlgo(N : Network, pathList : List[Path], precision : float, commod
                     " previous change ", round(float(oldRelDiffBwFlows),4))
 
             # update iteration variables
+            # for i,_ in enumerate(commodities):
+            #     original_paths = list(pathInflows.fPlus[i].keys())
+            #     print("pathinflow initially:", original_paths)
+
+            #     original_paths = list(newpathInflows.fPlus[i].keys())
+            #     print("newpath inflow:", original_paths)
+
             pathInflows = newpathInflows
+
+            # for i,_ in enumerate(commodities):
+            #     original_paths = list(pathInflows.fPlus[i].keys())
+            #     print("newpathinfowcopy :", original_paths)
+
             oldAbsDiffBwFlows = newAbsDiffBwFlows
             oldRelDiffBwFlows = newRelDiffBwFlows
 
@@ -626,7 +700,13 @@ def fixedPointAlgo(N : Network, pathList : List[Path], precision : float, commod
                      theta + timeStep/2) - (theta + timeStep/2)
             tmin = np.min(ttravelTime[:,k])
             for j,P in enumerate(pathInflows.fPlus[i]):
-                val = fP[P].getValueAt(theta + timeStep/2)
+                
+                # if(i>0):
+                #     P=repr(P)
+                # print(i," ", j," c ",P," ",theta)
+                val = fP[P.unwrap() if isinstance(P, PreserveReprWrapper) else P].getValueAt(theta + timeStep/2)
+                # val = fP[P].getValueAt(theta + timeStep/2)
+                # print(f"Path {j}, flow value: {val}")
                 qopiPath[j][k] = (ttravelTime[j][k] - tmin)*val/(tmin*commFlow)
             theta = theta + timeStep
         travelTime.append(ttravelTime)
