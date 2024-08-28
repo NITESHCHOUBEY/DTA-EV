@@ -537,6 +537,14 @@ def fixedPointAlgo(N : Network, pathList : List[Path], precision : float, commod
         
         # original_paths = list(newpathInflows.fPlus[i].keys())
         # print("Original path lengths:", [len(P) for P in original_paths])
+        for i in range(newpathInflows.getNoOfCommodities()):
+            unwrapped_fPlus = {}
+            for path, flow in newpathInflows.fPlus[i].items():
+                if isinstance(path, PreserveReprWrapper):
+                    unwrapped_fPlus[path.unwrap()] = flow
+                else:
+                    unwrapped_fPlus[path] = flow
+            newpathInflows.fPlus[i] = unwrapped_fPlus
 
 
         # print("new path is")
