@@ -5,6 +5,11 @@ import sys, time, os, numpy
 from networkloading import *
 from fixedPointAlgorithm import *
 
+# New for plotting
+import matplotlib.pyplot as plt
+import os
+import csv
+
 # For reading graphs
 import networkx as nx
 
@@ -49,6 +54,31 @@ def readNetwork(edgeList, verbose: bool=False) -> Network:
     #TODO: Plot the graph using nx
     return G
 
+def storeResult(filename, data):
+    with open(filename, 'w', newline='') as f:
+        writer = csv.writer(f, delimiter='\t')
+        headers = ['Iteration'] + list(data.keys())
+        writer.writerow(headers)
+        
+        for i in range(len(next(iter(data.values())))):
+            row = [f"{i+1:5d}"] + [f"{data[key][i]:15.6f}" for key in data.keys()]
+            writer.writerow(row)
+
+def plotResult(data, output_prefix):
+    colors = ['blue', 'red', 'green', 'purple', 'orange', 'brown', 'pink']
+    
+    for i, (label, y_data) in enumerate(data.items()):
+        plt.figure(figsize=(10, 6))
+        plt.plot(range(1, len(y_data) + 1), y_data, marker='o', color=colors[i % len(colors)], label=label)
+        plt.xlabel('Iteration')
+        plt.ylabel(label)
+        plt.title(f'{label} over Iterations')
+        plt.legend()
+        plt.grid(True)
+        plt.savefig(f'{output_prefix}_{label.lower().replace(" ", "_")}.png')
+        plt.close()
+        
+    print(f"Plots saved as {output_prefix}_*.png")
 
 def readCommodities(commList) -> List[Tuple[Node, Node, PWConst]]:
     commodities = []
@@ -185,8 +215,30 @@ if __name__ == "__main__":
     print("Mean time for FP Update : ", round(totFPUTime/len(ralphaIter),4))
     print("\nElapsed wall time: ", round(tEnd-tStart,4))
 
-    # Save the results to files
+    # Saving the results to files
     # dirname = os.path.expanduser('./npzfiles')
+    outputFile = f"Result.csv"
+    plotOutput = f"PlotOfResult"
+
+    # Preparing the data to store in output file
+    data_dict = {
+        'Alpha': ralphaIter,
+        'Abs_Diff_Flows': rAbsDiffBwFlowsIter,
+        'Rel_Diff_Flows': rRelDiffBwFlowsIter,
+        'QoPI': rqopiIter,
+        'QoPI_Flow': rqopiFlowIter
+    }
+
+    # Saving data
+    storeResult(outputFile, data_dict)
+    print(f"Data saved to {outputFile}")
+
+    # Creating and saving the plots
+    plotResult(data_dict, plotOutput)
+
+    print("Data saving and plotting completed.")
+
+
     dirname = os.path.expanduser('./miscfiles')
     # Uncomment below to include a string indicating the alpha-update strategy
     # default is alphaSmooth(gamma)

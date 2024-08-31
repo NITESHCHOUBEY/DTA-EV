@@ -63,55 +63,90 @@ def calculate_cost(energy: float,price: float,time: float,alpha:float,priceToTim
     return alpha*(time+priceToTime*price)+beta*energy
 
 
-def dijkstra(nt: dict, src: Node, dest: Node, excluded_paths: set, EB: float, PB: float,alpha:float,priceToTime:float) -> Path:
+# def dijkstra(nt: dict, src: Node, dest: Node, excluded_paths: set, EB: float, PB: float,alpha:float,priceToTime:float) -> Path:
+#     # Priority queue containing (cost, time , node, path as a list, total_energy spent till that node, total_price spent till that node)
+#     pq = PriorityQueue()
+#     pq.put(PrioritizedItem(0, (0, src, [], 0, 0, {src: 1}))) 
+
+#     # Dictionary to store the shortest path to each node
+#     shortest_paths = {src: (0,0, [], 0, 0)}  # cost(priority), time , path_edges, energy spent, price spent
+
+#     while not pq.empty():
+#         current_item = pq.get()
+#         combined_cost = current_item.priority
+#         current_time, current_node, current_path, current_energy, current_price, visited_nodes = current_item.item
+
+#         if current_node in shortest_paths and combined_cost>shortest_paths[current_node][0]:
+#             continue
+#         # arrived at the destination 
+#         if current_node == dest:
+#             potential_path = Path(current_path, src)                            # creating the path
+#             if potential_path not in excluded_paths:                            # making sure we have a new path
+#                 if current_energy <= EB and current_price <= PB:       
+#                     return potential_path
+#                 else:
+#                     continue
+
+#         for edge in current_node.outgoing_edges:
+#             neighbor = edge.node_to
+           
+#             if neighbor in visited_nodes:
+#                 if visited_nodes[neighbor] >= 2:
+#                     continue  # Skippint the node if its neighbor has already been visited twice
+#                 visited_nodes[neighbor] += 1
+#             else:
+#                 visited_nodes[neighbor] = 1
+
+#             updated_time = current_time + nt[edge]
+#             updated_energy = current_energy + edge.ec
+#             updated_price = current_price + edge.price
+#             updated_path = current_path + [edge]
+#             updated_cost=calculate_cost(updated_energy,updated_price,updated_time,alpha,priceToTime)
+
+#             # if we have a new node or if we are getting a faster route we update the dictionary shortest path and pq
+#             if (neighbor not in shortest_paths or updated_cost < shortest_paths[neighbor][0]) and updated_energy <= EB and updated_price <= PB:
+#                 shortest_paths[neighbor] = (updated_cost , updated_time, updated_path, updated_energy, updated_price)
+#                 pq.put(PrioritizedItem(updated_cost, (updated_time, neighbor, updated_path, updated_energy, updated_price,visited_nodes)))
+
+#             visited_nodes[neighbor]-=1
+#             if visited_nodes[neighbor]==0:
+#                 del visited_nodes[neighbor]
+
+#     # If no path is found we return none
+#     return None
+
+def dijkstra(nt: dict, src: Node, dest: Node, excluded_paths: set, EB: float, PB: float, alpha: float, priceToTime: float) -> Path:
     # Priority queue containing (cost, time , node, path as a list, total_energy spent till that node, total_price spent till that node)
     pq = PriorityQueue()
     pq.put(PrioritizedItem(0, (0, src, [], 0, 0, {src: 1}))) 
 
-    # Dictionary to store the shortest path to each node
-    shortest_paths = {src: (0,0, [], 0, 0)}  # cost(priority), time , path_edges, energy spent, price spent
-   # visited_in_path = {}
-    #visited_in_path = {src: []}
-   # if countIterations>30:
-    #    print("Check8")
+    # Dictionary to store all feasible paths to each node
+    all_paths = {src: [(0, 0, [], 0, 0)]}  # cost(priority), time , path_edges, energy spent, price spent
+
     while not pq.empty():
-        #if countIterations>30:
-         #   print(f"Current size of the priority queue: {pq.qsize()}")
-            #print("Check10")
         current_item = pq.get()
         combined_cost = current_item.priority
         current_time, current_node, current_path, current_energy, current_price, visited_nodes = current_item.item
 
-        if current_node in shortest_paths and combined_cost>shortest_paths[current_node][0]:
+        # Skip if a better path has already been found
+        if current_node in all_paths and any(combined_cost > path[0] for path in all_paths[current_node]):
             continue
-        # arrived at the destination 
+
+        # Arrived at the destination 
         if current_node == dest:
-            potential_path = Path(current_path, src)                            # creating the path
-            if potential_path not in excluded_paths:                            # making sure we have a new path
-                if current_energy <= EB and current_price <= PB:       
-                    # print("path is ",potential_path," with energy use ",current_energy," and price ",current_price)
-                    #if countIterations>30:
-                     #   print("Check9")
+            potential_path = Path(current_path, src)  # creating the path
+            if potential_path not in excluded_paths:  # making sure we have a new path
+                if current_energy <= EB and current_price <= PB:
                     return potential_path
                 else:
                     continue
-        
-        
-       # if current_node in visited_in_path:
-        #    continue
-        #visited_in_path[current_node] = True
-        #if current_node not in visited_in_path:
-         #   visited_in_path[current_node] = []
-        # Visiting each neighbor of the current node
+
         for edge in current_node.outgoing_edges:
             neighbor = edge.node_to
-           
-            # new_visited_nodes = visited_nodes.copy()
 
-            # Update the visit count for the neighbor
             if neighbor in visited_nodes:
                 if visited_nodes[neighbor] >= 2:
-                    continue  # Skip if this neighbor has already been visited twice
+                    continue  # Skipping the node if its neighbor has already been visited twice
                 visited_nodes[neighbor] += 1
             else:
                 visited_nodes[neighbor] = 1
@@ -120,19 +155,22 @@ def dijkstra(nt: dict, src: Node, dest: Node, excluded_paths: set, EB: float, PB
             updated_energy = current_energy + edge.ec
             updated_price = current_price + edge.price
             updated_path = current_path + [edge]
-            updated_cost=calculate_cost(updated_energy,updated_price,updated_time,alpha,priceToTime)
+            updated_cost = calculate_cost(updated_energy, updated_price, updated_time, alpha, priceToTime)
 
-            # if we have a new node or if we are getting a faster route we update the dictionary shortest path and pq
-            if (neighbor not in shortest_paths or updated_cost < shortest_paths[neighbor][0]) and updated_energy <= EB and updated_price <= PB:
-                shortest_paths[neighbor] = (updated_cost , updated_time, updated_path, updated_energy, updated_price)
-                pq.put(PrioritizedItem(updated_cost, (updated_time, neighbor, updated_path, updated_energy, updated_price,visited_nodes)))
+            # adding new paths if they are feasible
+            if updated_energy <= EB and updated_price <= PB:
+                if neighbor not in all_paths:
+                    all_paths[neighbor] = []
+                all_paths[neighbor].append((updated_cost, updated_time, updated_path, updated_energy, updated_price))
+                pq.put(PrioritizedItem(updated_cost, (updated_time, neighbor, updated_path, updated_energy, updated_price, visited_nodes)))
 
-            visited_nodes[neighbor]-=1
-            if visited_nodes[neighbor]==0:
+            visited_nodes[neighbor] -= 1
+            if visited_nodes[neighbor] == 0:
                 del visited_nodes[neighbor]
-        #del visited_in_path[current_node]
-    # If no path is found, return None
+
+    # If no path is found we return none
     return None
+
 
 class PreserveReprWrapper:
     def __init__(self, obj):
