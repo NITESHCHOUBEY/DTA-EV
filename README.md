@@ -68,6 +68,6 @@ To find an approximate equilibrium for the above mentioned inputs, we can run th
 
 `python3 main.py ./examples/toyExamples/evExample6EdgesWR.txt ./examples/toyExamples/evExample6Comm.txt example6 50 2 3600 0.001 0.75 0.25 0 1`
 
-'python3 main.py ./examples/nguyen/nguyenEdgesWR.txt ./examples/nguyen/nguyenComm.txt example6 50 2 3600 0.001 0.75 0.25 0 1'
+'python3 main.py ./examples/nguyen/nguyenEdges.txt ./examples/nguyen/nguyenComm.txt example6 50 40000 7200 0.01 0.005 0.25 0 1'
 
 

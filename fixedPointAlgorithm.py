@@ -129,8 +129,8 @@ def dijkstra(nt: dict, src: Node, dest: Node, excluded_paths: set, EB: float, PB
         current_time, current_node, current_path, current_energy, current_price, visited_nodes = current_item.item
 
         # Skip if a better path has already been found
-        if current_node in all_paths and any(combined_cost > path[0] for path in all_paths[current_node]):
-            continue
+        # if current_node in all_paths and any(combined_cost > path[0] for path in all_paths[current_node]):
+        #     continue
 
         # Arrived at the destination 
         if current_node == dest:
