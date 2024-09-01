@@ -265,6 +265,8 @@ def fixedPointUpdate(N:Network,currentFlow: PartialFlow, oldPathInflows: Partial
 
     for i,comd in enumerate(commodities):
 
+        findingNewPaths=True
+
         original_oldPathInflows = custom_copy_partialflowpathbased(oldPathInflows)
 
         flowValue = [None]*len(oldPathInflows.fPlus[i])
@@ -316,7 +318,7 @@ def fixedPointUpdate(N:Network,currentFlow: PartialFlow, oldPathInflows: Partial
             nsp=nextShortestPath(nt,oldPathInflows.fPlus[i],s,t,EB,PB,alpha,priceToTime)
             #if countIterations>30:
              #   print("check5") 
-            if nsp!=None:
+            if nsp!=None and findingNewPaths:
 
                 # print(i," ",nsp," check ",theta)
 
@@ -338,7 +340,8 @@ def fixedPointUpdate(N:Network,currentFlow: PartialFlow, oldPathInflows: Partial
                 
                 newPathInflows.addPath(i,nsp,PWConst([zero],[],zero))
 
-            # else:
+            else:
+                findingNewPaths=False
             #     print("No new feasible path")
 
 	    # Set up the update problem for each subinterval
