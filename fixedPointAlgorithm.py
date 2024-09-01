@@ -115,62 +115,72 @@ def calculate_cost(energy: float,price: float,time: float,alpha:float,priceToTim
 #     # If no path is found we return none
 #     return None
 
-def dijkstra(nt: dict, src: Node, dest: Node, excluded_paths: set, EB: float, PB: float, alpha: float, priceToTime: float) -> Path:
-    # Priority queue containing (cost, time , node, path as a list, total_energy spent till that node, total_price spent till that node)
-    pq = PriorityQueue()
-    pq.put(PrioritizedItem(0, (0, src, [], 0, 0, {src: 1}))) 
+def is_charging_station(node: Node) -> bool:
+    return any(edge.node_to == node and edge.ec < 0 for edge in node.outgoing_edges)
 
-    # Dictionary to store all feasible paths to each node
-    all_paths = {src: [(0, 0, [], 0, 0)]}  # cost(priority), time , path_edges, energy spent, price spent
+def get_charging_edge(node: Node) -> Edge:
+    return next((edge for edge in node.outgoing_edges if edge.node_to == node and edge.ec < 0), None)
+
+def dijkstra(nt: Dict[Edge, float], src: Node, dest: Node, excluded_paths: set[Path], EB: float, PB: float, alpha: float, priceToTime: float) -> Path:
+    pq = PriorityQueue()
+    pq.put(PrioritizedItem(0, (0, src, [], 0, 0, {src: 1}, set())))  # Added set() for charged stations
+
+    all_paths = {src: [(0, 0, [], 0, 0, set())]}  # Added set() for charged stations
 
     while not pq.empty():
         current_item = pq.get()
         combined_cost = current_item.priority
-        current_time, current_node, current_path, current_energy, current_price, visited_nodes = current_item.item
+        current_time, current_node, current_path, current_energy, current_price, visited_nodes, charged_stations = current_item.item
 
-        # Skip if a better path has already been found
-        # if current_node in all_paths and any(combined_cost > path[0] for path in all_paths[current_node]):
-        #     continue
-
-        # Arrived at the destination 
         if current_node == dest:
-            potential_path = Path(current_path, src)  # creating the path
-            if potential_path not in excluded_paths:  # making sure we have a new path
+            potential_path = Path(current_path, src)
+            if potential_path not in excluded_paths:
                 if current_energy <= EB and current_price <= PB:
                     return potential_path
                 else:
                     continue
+            else:
+                continue
 
         for edge in current_node.outgoing_edges:
             neighbor = edge.node_to
 
             if neighbor in visited_nodes:
                 if visited_nodes[neighbor] >= 2:
-                    continue  # Skipping the node if its neighbor has already been visited twice
+                    continue
                 visited_nodes[neighbor] += 1
             else:
                 visited_nodes[neighbor] = 1
 
             updated_time = current_time + nt[edge]
-            updated_energy = current_energy + edge.ec
+            updated_energy = current_energy - edge.ec
             updated_price = current_price + edge.price
             updated_path = current_path + [edge]
+            updated_charged_stations = charged_stations.copy()
+
+            # Checking if it's a charging station and hasn't been used before
+            if is_charging_station(neighbor) and neighbor not in charged_stations:
+                charging_edge = get_charging_edge(neighbor)
+                if charging_edge:
+                    updated_energy = EB  # Recharging
+                    updated_price += charging_edge.price
+                    updated_time += nt[charging_edge]
+                    updated_charged_stations.add(neighbor)
+                    updated_path.append(charging_edge)
+
             updated_cost = calculate_cost(updated_energy, updated_price, updated_time, alpha, priceToTime)
 
-            # adding new paths if they are feasible
             if updated_energy <= EB and updated_price <= PB:
                 if neighbor not in all_paths:
                     all_paths[neighbor] = []
-                all_paths[neighbor].append((updated_cost, updated_time, updated_path, updated_energy, updated_price))
-                pq.put(PrioritizedItem(updated_cost, (updated_time, neighbor, updated_path, updated_energy, updated_price, visited_nodes)))
-
+                all_paths[neighbor].append((updated_cost, updated_time, updated_path, updated_energy, updated_price, updated_charged_stations))
+                pq.put(PrioritizedItem(updated_cost, (updated_time, neighbor, updated_path, updated_energy, updated_price, visited_nodes, updated_charged_stations)))
+                
             visited_nodes[neighbor] -= 1
             if visited_nodes[neighbor] == 0:
                 del visited_nodes[neighbor]
 
-    # If no path is found we return none
     return None
-
 
 class PreserveReprWrapper:
     def __init__(self, obj):

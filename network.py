@@ -503,7 +503,7 @@ class Network:
                         all_paths[neighbor] = []
                     all_paths[neighbor].append((updatedTime, updatedPath, updatedEnergy, updatedPrice))
                     
-                    # removeing dominated paths i.e longer time with same energy/price
+                    # removing dominated paths i.e longer time with same energy/price
                     all_paths[neighbor] = self.removeSlowEquivalentPaths(all_paths[neighbor])
 
         return globPathList
