@@ -271,7 +271,7 @@ def fixedPointUpdate(N:Network,currentFlow: PartialFlow, oldPathInflows: Partial
 
         if foundAllFeasiblePaths[i]==1: findingNewPaths=False
 
-        original_oldPathInflows = custom_copy_partialflowpathbased(oldPathInflows)
+        if findingNewPaths: original_oldPathInflows = custom_copy_partialflowpathbased(oldPathInflows)
 
         flowValue = [None]*len(oldPathInflows.fPlus[i])
         travelTime = [None]*len(oldPathInflows.fPlus[i])
@@ -451,7 +451,7 @@ def fixedPointUpdate(N:Network,currentFlow: PartialFlow, oldPathInflows: Partial
                 float(round(meanIter/(tmpVar*oldPathInflows.getEndOfInflow(i)),2)),\
                 " for ", tmpVar*oldPathInflows.getEndOfInflow(i), " subintervals")
             
-        oldPathInflows = custom_copy_partialflowpathbased(original_oldPathInflows)
+        if 'original_oldPathInflows' in locals(): oldPathInflows = custom_copy_partialflowpathbased(original_oldPathInflows)
     
     return newPathInflows, alpha
 
