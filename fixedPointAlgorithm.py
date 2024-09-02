@@ -125,7 +125,8 @@ def dijkstra(nt: Dict[Edge, float], src: Node, dest: Node, excluded_paths: set[P
     pq = PriorityQueue()
     pq.put(PrioritizedItem(0, (0, src, [], 0, 0, {src: 1}, set())))  # Added set() for charged stations
 
-    all_paths = {src: [(0, 0, [], 0, 0, set())]}  # Added set() for charged stations
+    #all_paths = {src: [(0, 0, [], 0, 0, set())]}  # Added set() for charged stations
+    shortest_paths = {src: (0, [], 0, 0)}  # cost, path_edges, energy spent, price spent
 
     while not pq.empty():
         current_item = pq.get()
@@ -170,10 +171,11 @@ def dijkstra(nt: Dict[Edge, float], src: Node, dest: Node, excluded_paths: set[P
 
             updated_cost = calculate_cost(updated_energy, updated_price, updated_time, alpha, priceToTime)
 
-            if updated_energy <= EB and updated_price <= PB:
-                if neighbor not in all_paths:
-                    all_paths[neighbor] = []
-                all_paths[neighbor].append((updated_cost, updated_time, updated_path, updated_energy, updated_price, updated_charged_stations))
+            if ((neighbor not in shortest_paths) or (updated_cost < shortest_paths[neighbor][0])) and updated_energy <= EB and updated_price <= PB:
+                shortest_paths[neighbor] = (updated_cost, updated_path, updated_energy, updated_price)
+                #if neighbor not in all_paths:
+                 #   all_paths[neighbor] = []
+                #all_paths[neighbor].append((updated_cost, updated_time, updated_path, updated_energy, updated_price, updated_charged_stations))
                 pq.put(PrioritizedItem(updated_cost, (updated_time, neighbor, updated_path, updated_energy, updated_price, visited_nodes, updated_charged_stations)))
                 
             visited_nodes[neighbor] -= 1
