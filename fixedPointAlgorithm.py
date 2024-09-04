@@ -286,7 +286,7 @@ def nextShortestPath(nt:dict, oldPathInFlowsCommodity: dict, src: Node, dest: No
 
 def fixedPointUpdate(N:Network,currentFlow: PartialFlow, oldPathInflows: PartialFlowPathBased, timeHorizon:
         number, alpha: float, timestepSize, priceToTime: float, commodities, verbose:
-        bool,generatedPath:List[List[Path]],EB: float=infinity,PB: float=infinity) -> PartialFlowPathBased:
+        bool,generatedPath:List[List[Path]],foundAllFeasiblePaths: List[int],EB: float=infinity,PB: float=infinity) -> PartialFlowPathBased:
 
     # for i,_ in enumerate(commodities):
     #     original_paths = list(oldPathInflows.fPlus[i].keys())
@@ -299,11 +299,11 @@ def fixedPointUpdate(N:Network,currentFlow: PartialFlow, oldPathInflows: Partial
 
     for i,comd in enumerate(commodities):
 
-        # findingNewPaths=True
+        findingNewPaths=True
 
-        # if foundAllFeasiblePaths[i]==1: findingNewPaths=False
+        if foundAllFeasiblePaths[i]==1: findingNewPaths=False
 
-        original_oldPathInflows = custom_copy_partialflowpathbased(oldPathInflows)
+        if findingNewPaths: original_oldPathInflows = custom_copy_partialflowpathbased(oldPathInflows)
 
         flowValue = [None]*len(oldPathInflows.fPlus[i])
         travelTime = [None]*len(oldPathInflows.fPlus[i])
@@ -317,17 +317,17 @@ def fixedPointUpdate(N:Network,currentFlow: PartialFlow, oldPathInflows: Partial
 
         k = -1
 
-        
-        fl=newPathInflows.fPlus[i]
-        npaths=[]
-        nff=[]
+        if findingNewPaths: 
+            fl=newPathInflows.fPlus[i]
+            npaths=[]
+            nff=[]
 
-        for p,pc in fl.items():
-            npaths.append(p)
-            nff.append(pc)
-        
-        paths = list(oldPathInflows.fPlus[i].keys())
-        flow_function = list(oldPathInflows.fPlus[i].values())
+            for p,pc in fl.items():
+                npaths.append(p)
+                nff.append(pc)
+            
+            paths = list(oldPathInflows.fPlus[i].keys())
+            flow_function = list(oldPathInflows.fPlus[i].values())
 
         
         # itera=1
@@ -344,17 +344,18 @@ def fixedPointUpdate(N:Network,currentFlow: PartialFlow, oldPathInflows: Partial
             #     print(f"Key: {keyed} (Address: {repr(keyed)}) -> Value: {plst}")
             
             # print("Key in dictionary:", repr(list(currentFlow.queues.keys())[0]))
-            for p in oldPathInflows.fPlus[i]:
-                for ed in p.edges:
-                    nt[ed]=currentFlow.c(ed,theta)
+            if findingNewPaths:
+                for p in oldPathInflows.fPlus[i]:
+                    for ed in p.edges:
+                        nt[ed]=currentFlow.c(ed,theta)
             # itera+=1
           #  if(countIterations>30):
            #     print("check4")
-            nsp=nextShortestPath(nt,oldPathInflows.fPlus[i],s,t,EB,PB,alpha,priceToTime)
+            if findingNewPaths: nsp=nextShortestPath(nt,oldPathInflows.fPlus[i],s,t,EB,PB,alpha,priceToTime)
             #if countIterations>30:
              #   print("check5") 
-            # first=False
-            if nsp!=None:
+            first=False
+            if findingNewPaths and nsp!=None:
 
                 # print(i," ",nsp," check ",theta)
 
@@ -376,10 +377,10 @@ def fixedPointUpdate(N:Network,currentFlow: PartialFlow, oldPathInflows: Partial
                 
                 newPathInflows.addPath(i,nsp,PWConst([zero],[],zero))
 
-            # else:
-                # if findingNewPaths: first=True
-                # findingNewPaths=False
-                # foundAllFeasiblePaths[i]=1
+            else:
+                if findingNewPaths: first=True
+                findingNewPaths=False
+                foundAllFeasiblePaths[i]=1
             #     print("No new feasible path")
 
 	    # Set up the update problem for each subinterval
@@ -482,7 +483,7 @@ def fixedPointUpdate(N:Network,currentFlow: PartialFlow, oldPathInflows: Partial
                 float(round(meanIter/(tmpVar*oldPathInflows.getEndOfInflow(i)),2)),\
                 " for ", tmpVar*oldPathInflows.getEndOfInflow(i), " subintervals")
             
-        oldPathInflows = custom_copy_partialflowpathbased(original_oldPathInflows)
+        if 'original_oldPathInflows' in locals(): oldPathInflows = custom_copy_partialflowpathbased(original_oldPathInflows)
     
     return newPathInflows, alpha
 
@@ -565,7 +566,7 @@ def fixedPointAlgo(N : Network, pathList : List[Path], precision : float, commod
     ## Initialize:
     # Create zero-flow (PP: why?)
     pathInflows = PartialFlowPathBased(N,0)
-    # foundAllFeasiblePaths=[0]*len(commodities) #list to ensure that once we have found all feasible paths we dont look for new ones in fpupdate
+    foundAllFeasiblePaths=[0]*len(commodities) #list to ensure that once we have found all feasible paths we dont look for new ones in fpupdate
     # TODO: Conform with LG if this can be removed
     # zeroflow = networkLoading(pathInflows)
 
@@ -623,11 +624,12 @@ def fixedPointAlgo(N : Network, pathList : List[Path], precision : float, commod
         #     original_paths = list(pathInflows.fPlus[i].keys())
         #     print("verify lengths:",original_paths)
         newpathInflows, alpha = fixedPointUpdate(N,iterFlow, pathInflows, timeHorizon, alpha,
-                timeStep, priceToTime, commodities, verbose,genPaths,EB,PB)
+                timeStep, priceToTime, commodities, verbose,genPaths,foundAllFeasiblePaths,EB,PB)
         
         # original_paths = list(newpathInflows.fPlus[i].keys())
         # print("Original path lengths:", [len(P) for P in original_paths])
         for i in range(newpathInflows.getNoOfCommodities()):
+            if foundAllFeasiblePaths[i]==1: continue
             unwrapped_fPlus = {}
             for path, flow in newpathInflows.fPlus[i].items():
                 if isinstance(path, PreserveReprWrapper):
