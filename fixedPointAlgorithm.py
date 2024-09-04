@@ -126,7 +126,8 @@ def dijkstra(nt: Dict[Edge, float], src: Node, dest: Node, excluded_paths: set[P
     pq.put(PrioritizedItem(0, (0, src, [], 0, 0, {src: 1}, set())))  # Added set() for charged stations
 
     #all_paths = {src: [(0, 0, [], 0, 0, set())]}  # Added set() for charged stations
-    shortest_paths = {src: (0, [], 0, 0)}  # cost, path_edges, energy spent, price spent
+    # shortest_paths = {src: (0, [], 0, 0)}  # cost, path_edges, energy spent, price spent
+    shortest_paths = {src: [(0, [], 0, 0)]}
 
     while not pq.empty():
         current_item = pq.get()
@@ -154,29 +155,58 @@ def dijkstra(nt: Dict[Edge, float], src: Node, dest: Node, excluded_paths: set[P
                 visited_nodes[neighbor] = 1
 
             updated_time = current_time + nt[edge]
-            updated_energy = current_energy - edge.ec
+            updated_energy = current_energy + edge.ec
             updated_price = current_price + edge.price
             updated_path = current_path + [edge]
             updated_charged_stations = charged_stations.copy()
 
-            # Checking if it's a charging station and hasn't been used before
-            if is_charging_station(neighbor) and neighbor not in charged_stations:
+            # Considering the path without considering the recharging capabilities of neighbour 
+            if updated_energy <= EB and updated_price <= PB:
+                updated_cost = calculate_cost(updated_energy, updated_price, updated_time, alpha, priceToTime)
+                if neighbor not in shortest_paths:
+                    shortest_paths[neighbor] = [(updated_cost, updated_path, updated_energy, updated_price)]
+                    pq.put(PrioritizedItem(updated_cost, (updated_time, neighbor, updated_path, updated_energy, updated_price, visited_nodes.copy(), updated_charged_stations)))
+                else:
+                    if all(updated_cost < path[0] for path in shortest_paths[neighbor]):
+                        shortest_paths[neighbor].append((updated_cost, updated_path, updated_energy, updated_price))
+                        pq.put(PrioritizedItem(updated_cost, (updated_time, neighbor, updated_path, updated_energy, updated_price, visited_nodes.copy(), updated_charged_stations)))
+            
+            # If the neighbour node is a recharge station then we add this 
+            if  updated_energy <= EB and updated_price <= PB and is_charging_station(neighbor) and neighbor not in charged_stations:
                 charging_edge = get_charging_edge(neighbor)
                 if charging_edge:
-                    updated_energy = EB  # Recharging
-                    updated_price += charging_edge.price
-                    updated_time += nt[charging_edge]
-                    updated_charged_stations.add(neighbor)
-                    updated_path.append(charging_edge)
+                    recharged_energy = 0
+                    recharged_price = updated_price + charging_edge.price
+                    recharged_time = updated_time + nt[charging_edge]
+                    recharged_path = updated_path + [charging_edge]
+                    recharged_charged_stations = updated_charged_stations.copy()
+                    recharged_charged_stations.add(neighbor)
 
-            updated_cost = calculate_cost(updated_energy, updated_price, updated_time, alpha, priceToTime)
+                    recharged_cost = calculate_cost(recharged_energy, recharged_price, recharged_time, alpha, priceToTime)
+                    # if neighbor not in shortest_paths:
+                    #     shortest_paths[neighbor] = [(recharged_cost, recharged_path, recharged_energy, recharged_price)]
+                    #     pq.put(PrioritizedItem(recharged_cost, (recharged_time, neighbor, recharged_path, recharged_energy, recharged_price, visited_nodes.copy(), recharged_charged_stations)))
+                    # else:
+                        # Always add the recharged path as an alternative
+                    shortest_paths[neighbor].append((recharged_cost, recharged_path, recharged_energy, recharged_price))
+                    pq.put(PrioritizedItem(recharged_cost, (recharged_time, neighbor, recharged_path, recharged_energy, recharged_price, visited_nodes.copy(), recharged_charged_stations)))
 
-            if ((neighbor not in shortest_paths) or (updated_cost < shortest_paths[neighbor][0])) and updated_energy <= EB and updated_price <= PB:
-                shortest_paths[neighbor] = (updated_cost, updated_path, updated_energy, updated_price)
-                #if neighbor not in all_paths:
-                 #   all_paths[neighbor] = []
-                #all_paths[neighbor].append((updated_cost, updated_time, updated_path, updated_energy, updated_price, updated_charged_stations))
-                pq.put(PrioritizedItem(updated_cost, (updated_time, neighbor, updated_path, updated_energy, updated_price, visited_nodes, updated_charged_stations)))
+
+            # # Checking if it's a charging station and hasn't been used before
+            # if is_charging_station(neighbor) and neighbor not in charged_stations:
+            #     charging_edge = get_charging_edge(neighbor)
+            #     if charging_edge:
+            #         updated_energy = EB  # Recharging
+            #         updated_price += charging_edge.price
+            #         updated_time += nt[charging_edge]
+            #         updated_charged_stations.add(neighbor)
+            #         updated_path.append(charging_edge)
+
+            # updated_cost = calculate_cost(updated_energy, updated_price, updated_time, alpha, priceToTime)
+
+            # if ((neighbor not in shortest_paths) or (updated_cost < shortest_paths[neighbor][0])) and updated_energy <= EB and updated_price <= PB:
+            #     shortest_paths[neighbor] = (updated_cost, updated_path, updated_energy, updated_price)
+            #     pq.put(PrioritizedItem(updated_cost, (updated_time, neighbor, updated_path, updated_energy, updated_price, visited_nodes, updated_charged_stations)))
                 
             visited_nodes[neighbor] -= 1
             if visited_nodes[neighbor] == 0:
@@ -256,7 +286,7 @@ def nextShortestPath(nt:dict, oldPathInFlowsCommodity: dict, src: Node, dest: No
 
 def fixedPointUpdate(N:Network,currentFlow: PartialFlow, oldPathInflows: PartialFlowPathBased, timeHorizon:
         number, alpha: float, timestepSize, priceToTime: float, commodities, verbose:
-        bool,generatedPath:List[List[Path]],foundAllFeasiblePaths: List[int],EB: float=infinity,PB: float=infinity) -> PartialFlowPathBased:
+        bool,generatedPath:List[List[Path]],EB: float=infinity,PB: float=infinity) -> PartialFlowPathBased:
 
     # for i,_ in enumerate(commodities):
     #     original_paths = list(oldPathInflows.fPlus[i].keys())
@@ -269,11 +299,11 @@ def fixedPointUpdate(N:Network,currentFlow: PartialFlow, oldPathInflows: Partial
 
     for i,comd in enumerate(commodities):
 
-        findingNewPaths=True
+        # findingNewPaths=True
 
-        if foundAllFeasiblePaths[i]==1: findingNewPaths=False
+        # if foundAllFeasiblePaths[i]==1: findingNewPaths=False
 
-        if findingNewPaths: original_oldPathInflows = custom_copy_partialflowpathbased(oldPathInflows)
+        original_oldPathInflows = custom_copy_partialflowpathbased(oldPathInflows)
 
         flowValue = [None]*len(oldPathInflows.fPlus[i])
         travelTime = [None]*len(oldPathInflows.fPlus[i])
@@ -287,17 +317,17 @@ def fixedPointUpdate(N:Network,currentFlow: PartialFlow, oldPathInflows: Partial
 
         k = -1
 
-        if findingNewPaths: 
-            fl=newPathInflows.fPlus[i]
-            npaths=[]
-            nff=[]
+        
+        fl=newPathInflows.fPlus[i]
+        npaths=[]
+        nff=[]
 
-            for p,pc in fl.items():
-                npaths.append(p)
-                nff.append(pc)
-            
-            paths = list(oldPathInflows.fPlus[i].keys())
-            flow_function = list(oldPathInflows.fPlus[i].values())
+        for p,pc in fl.items():
+            npaths.append(p)
+            nff.append(pc)
+        
+        paths = list(oldPathInflows.fPlus[i].keys())
+        flow_function = list(oldPathInflows.fPlus[i].values())
 
         
         # itera=1
@@ -314,18 +344,17 @@ def fixedPointUpdate(N:Network,currentFlow: PartialFlow, oldPathInflows: Partial
             #     print(f"Key: {keyed} (Address: {repr(keyed)}) -> Value: {plst}")
             
             # print("Key in dictionary:", repr(list(currentFlow.queues.keys())[0]))
-            if findingNewPaths:
-                for p in oldPathInflows.fPlus[i]:
-                    for ed in p.edges:
-                        nt[ed]=currentFlow.c(ed,theta)
+            for p in oldPathInflows.fPlus[i]:
+                for ed in p.edges:
+                    nt[ed]=currentFlow.c(ed,theta)
             # itera+=1
           #  if(countIterations>30):
            #     print("check4")
-            if findingNewPaths: nsp=nextShortestPath(nt,oldPathInflows.fPlus[i],s,t,EB,PB,alpha,priceToTime)
+            nsp=nextShortestPath(nt,oldPathInflows.fPlus[i],s,t,EB,PB,alpha,priceToTime)
             #if countIterations>30:
              #   print("check5") 
-            first=False
-            if findingNewPaths and nsp!=None:
+            # first=False
+            if nsp!=None:
 
                 # print(i," ",nsp," check ",theta)
 
@@ -347,10 +376,10 @@ def fixedPointUpdate(N:Network,currentFlow: PartialFlow, oldPathInflows: Partial
                 
                 newPathInflows.addPath(i,nsp,PWConst([zero],[],zero))
 
-            else:
-                if findingNewPaths: first=True
-                findingNewPaths=False
-                foundAllFeasiblePaths[i]=1
+            # else:
+                # if findingNewPaths: first=True
+                # findingNewPaths=False
+                # foundAllFeasiblePaths[i]=1
             #     print("No new feasible path")
 
 	    # Set up the update problem for each subinterval
@@ -453,7 +482,7 @@ def fixedPointUpdate(N:Network,currentFlow: PartialFlow, oldPathInflows: Partial
                 float(round(meanIter/(tmpVar*oldPathInflows.getEndOfInflow(i)),2)),\
                 " for ", tmpVar*oldPathInflows.getEndOfInflow(i), " subintervals")
             
-        if 'original_oldPathInflows' in locals(): oldPathInflows = custom_copy_partialflowpathbased(original_oldPathInflows)
+        oldPathInflows = custom_copy_partialflowpathbased(original_oldPathInflows)
     
     return newPathInflows, alpha
 
@@ -536,7 +565,7 @@ def fixedPointAlgo(N : Network, pathList : List[Path], precision : float, commod
     ## Initialize:
     # Create zero-flow (PP: why?)
     pathInflows = PartialFlowPathBased(N,0)
-    foundAllFeasiblePaths=[0]*len(commodities) #list to ensure that once we have found all feasible paths we dont look for new ones in fpupdate
+    # foundAllFeasiblePaths=[0]*len(commodities) #list to ensure that once we have found all feasible paths we dont look for new ones in fpupdate
     # TODO: Conform with LG if this can be removed
     # zeroflow = networkLoading(pathInflows)
 
@@ -594,12 +623,11 @@ def fixedPointAlgo(N : Network, pathList : List[Path], precision : float, commod
         #     original_paths = list(pathInflows.fPlus[i].keys())
         #     print("verify lengths:",original_paths)
         newpathInflows, alpha = fixedPointUpdate(N,iterFlow, pathInflows, timeHorizon, alpha,
-                timeStep, priceToTime, commodities, verbose,genPaths,foundAllFeasiblePaths,EB,PB)
+                timeStep, priceToTime, commodities, verbose,genPaths,EB,PB)
         
         # original_paths = list(newpathInflows.fPlus[i].keys())
         # print("Original path lengths:", [len(P) for P in original_paths])
         for i in range(newpathInflows.getNoOfCommodities()):
-            if foundAllFeasiblePaths[i]==1: continue
             unwrapped_fPlus = {}
             for path, flow in newpathInflows.fPlus[i].items():
                 if isinstance(path, PreserveReprWrapper):
