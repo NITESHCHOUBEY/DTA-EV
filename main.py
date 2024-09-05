@@ -180,7 +180,24 @@ if __name__ == "__main__":
     # print("eventualFlow: ", eventualFlow)
     # print("Number of paths in f: ", sum([len(f.fPlus[i]) for i in
         # f.noOfCommodities]))
+    
+    # Open a text file to store the paths
+    with open("paths_output.txt", "w") as file:
+        file.write("Paths from the flow:\n")
+        for i in range(f.noOfCommodities):
+            file.write(f"\nCommodity {i}:\n")
+            for path, flow in f.fPlus[i].items():
+                # Assuming 'path' is an object and you want to print its custom string representation
+                if isinstance(path, PreserveReprWrapper):
+                    # Unwrap the path if it is wrapped
+                    path = path.unwrap()
+                
+                # Customize the path output (replace this line with how you want the path to be represented)
+                path_str = G.printPathInNetwork(path)  # Assuming printPathInNetwork gives the intended string representation
+                file.write(f"Path: {path_str}, Flow: {flow}\n")
+
     print("f: ", f)
+
     # print("queue at: ")
     # for id, e in enumerate(eventualFlow.network.edges):
         # if eventualFlow.queues[e].noOfSegments > 1 or\
