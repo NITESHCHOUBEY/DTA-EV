@@ -123,8 +123,8 @@ def get_charging_edge(node: Node) -> Edge:
 
 def dijkstra(nt: Dict[Edge, float], src: Node, dest: Node, excluded_paths: set[Path], EB: float, PB: float, alpha: float, priceToTime: float) -> Path:
     pq = PriorityQueue()
-    pq.put(PrioritizedItem(0, (0, src, [], 0, 0, {src: 1}, set())))  # Added set() for charged stations
-
+    pq.put(PrioritizedItem(0, (0, src, [], 0, 0, set())))  # Added set() for charged stations
+    #current_time, current_node, current_path, current_energy, current_price, charged_stations 
     #all_paths = {src: [(0, 0, [], 0, 0, set())]}  # Added set() for charged stations
     # shortest_paths = {src: (0, [], 0, 0)}  # cost, path_edges, energy spent, price spent
     shortest_paths = {src: [(0, [], 0, 0)]}
@@ -132,7 +132,7 @@ def dijkstra(nt: Dict[Edge, float], src: Node, dest: Node, excluded_paths: set[P
     while not pq.empty():
         current_item = pq.get()
         combined_cost = current_item.priority
-        current_time, current_node, current_path, current_energy, current_price, visited_nodes, charged_stations = current_item.item
+        current_time, current_node, current_path, current_energy, current_price, charged_stations = current_item.item
 
         if current_node == dest:
             potential_path = Path(current_path, src)
@@ -147,12 +147,12 @@ def dijkstra(nt: Dict[Edge, float], src: Node, dest: Node, excluded_paths: set[P
         for edge in current_node.outgoing_edges:
             neighbor = edge.node_to
 
-            if neighbor in visited_nodes:
-                if visited_nodes[neighbor] >= 2:
-                    continue
-                visited_nodes[neighbor] += 1
-            else:
-                visited_nodes[neighbor] = 1
+            # if neighbor in visited_nodes:
+            #     if visited_nodes[neighbor] >= 2:
+            #         continue
+            #     visited_nodes[neighbor] += 1
+            # else:
+            #     visited_nodes[neighbor] = 1
 
             updated_time = current_time + nt[edge]
             updated_energy = current_energy + edge.ec
@@ -165,11 +165,11 @@ def dijkstra(nt: Dict[Edge, float], src: Node, dest: Node, excluded_paths: set[P
                 updated_cost = calculate_cost(updated_energy, updated_price, updated_time, alpha, priceToTime)
                 if neighbor not in shortest_paths:
                     shortest_paths[neighbor] = [(updated_cost, updated_path, updated_energy, updated_price)]
-                    pq.put(PrioritizedItem(updated_cost, (updated_time, neighbor, updated_path, updated_energy, updated_price, visited_nodes.copy(), updated_charged_stations)))
+                    pq.put(PrioritizedItem(updated_cost, (updated_time, neighbor, updated_path, updated_energy, updated_price, updated_charged_stations)))
                 else:
                     if all(updated_cost < path[0] for path in shortest_paths[neighbor]):
                         shortest_paths[neighbor].append((updated_cost, updated_path, updated_energy, updated_price))
-                        pq.put(PrioritizedItem(updated_cost, (updated_time, neighbor, updated_path, updated_energy, updated_price, visited_nodes.copy(), updated_charged_stations)))
+                        pq.put(PrioritizedItem(updated_cost, (updated_time, neighbor, updated_path, updated_energy, updated_price, updated_charged_stations)))
             
             # If the neighbour node is a recharge station then we add this 
             if  updated_energy <= EB and updated_price <= PB and is_charging_station(neighbor) and neighbor not in charged_stations:
@@ -189,7 +189,7 @@ def dijkstra(nt: Dict[Edge, float], src: Node, dest: Node, excluded_paths: set[P
                     # else:
                         # Always add the recharged path as an alternative
                     shortest_paths[neighbor].append((recharged_cost, recharged_path, recharged_energy, recharged_price))
-                    pq.put(PrioritizedItem(recharged_cost, (recharged_time, neighbor, recharged_path, recharged_energy, recharged_price, visited_nodes.copy(), recharged_charged_stations)))
+                    pq.put(PrioritizedItem(recharged_cost, (recharged_time, neighbor, recharged_path, recharged_energy, recharged_price, recharged_charged_stations)))
 
 
             # # Checking if it's a charging station and hasn't been used before
@@ -208,9 +208,9 @@ def dijkstra(nt: Dict[Edge, float], src: Node, dest: Node, excluded_paths: set[P
             #     shortest_paths[neighbor] = (updated_cost, updated_path, updated_energy, updated_price)
             #     pq.put(PrioritizedItem(updated_cost, (updated_time, neighbor, updated_path, updated_energy, updated_price, visited_nodes, updated_charged_stations)))
                 
-            visited_nodes[neighbor] -= 1
-            if visited_nodes[neighbor] == 0:
-                del visited_nodes[neighbor]
+            # visited_nodes[neighbor] -= 1
+            # if visited_nodes[neighbor] == 0:
+            #     del visited_nodes[neighbor]
 
     return None
 
