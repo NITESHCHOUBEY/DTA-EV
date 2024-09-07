@@ -286,7 +286,7 @@ def nextShortestPath(nt:dict, oldPathInFlowsCommodity: dict, src: Node, dest: No
 
 def fixedPointUpdate(N:Network,currentFlow: PartialFlow, oldPathInflows: PartialFlowPathBased, timeHorizon:
         number, alpha: float, timestepSize, priceToTime: float, commodities, verbose:
-        bool,generatedPath:List[List[Path]],foundAllFeasiblePaths: List[int],EB: float=infinity,PB: float=infinity) -> PartialFlowPathBased:
+        bool,generatedPath:List[List[Path]],foundAllFeasiblePaths: List[int],count:dict,EB: float=infinity,PB: float=infinity) -> PartialFlowPathBased:
 
     # for i,_ in enumerate(commodities):
     #     original_paths = list(oldPathInflows.fPlus[i].keys())
@@ -301,7 +301,7 @@ def fixedPointUpdate(N:Network,currentFlow: PartialFlow, oldPathInflows: Partial
 
         findingNewPaths=True
 
-        if foundAllFeasiblePaths[i]==1: findingNewPaths=False
+        # if foundAllFeasiblePaths[i]==1: findingNewPaths=False
 
         if findingNewPaths: original_oldPathInflows = custom_copy_partialflowpathbased(oldPathInflows)
 
@@ -354,7 +354,7 @@ def fixedPointUpdate(N:Network,currentFlow: PartialFlow, oldPathInflows: Partial
             if findingNewPaths: nsp=nextShortestPath(nt,oldPathInflows.fPlus[i],s,t,EB,PB,alpha,priceToTime)
             #if countIterations>30:
              #   print("check5") 
-            first=False
+            # first=False
             if findingNewPaths and nsp!=None:
 
                 # print(i," ",nsp," check ",theta)
@@ -378,9 +378,12 @@ def fixedPointUpdate(N:Network,currentFlow: PartialFlow, oldPathInflows: Partial
                 newPathInflows.addPath(i,nsp,PWConst([zero],[],zero))
 
             else:
-                if findingNewPaths: first=True
-                findingNewPaths=False
-                foundAllFeasiblePaths[i]=1
+                if comd not in count:
+                    count[comd] = []
+                count[comd].append(theta)
+                # if findingNewPaths: first=True
+                # findingNewPaths=False
+                # foundAllFeasiblePaths[i]=1
             #     print("No new feasible path")
 
 	    # Set up the update problem for each subinterval
@@ -592,6 +595,8 @@ def fixedPointAlgo(N : Network, pathList : List[Path], precision : float, commod
     qopiFlowIter = []  # qopii per unit flow per unit time
     qopiPathComm = []  # mean of qopi
     shouldStop = not (maxSteps is None or step < maxSteps)
+    # commNSP={1:[],2:[],3:[],4:[]}
+    count=[]
 
 
     # alphaStr = ''
@@ -617,19 +622,20 @@ def fixedPointAlgo(N : Network, pathList : List[Path], precision : float, commod
     while not shouldStop:
         if verbose: print("STARTING ITERATION #", step)
         tStart = time.time()
+        count.append({})
         # TODO: Read priceToTime as input per commodity
         genPaths = [[] for _ in range(len(commodities))]
         # print(f"i: {i}, len(generatedPath): {len(commodities)}")
         # for i,_ in enumerate(commodities):
         #     original_paths = list(pathInflows.fPlus[i].keys())
         #     print("verify lengths:",original_paths)
-        newpathInflows, alpha = fixedPointUpdate(N,iterFlow, pathInflows, timeHorizon, alpha,
-                timeStep, priceToTime, commodities, verbose,genPaths,foundAllFeasiblePaths,EB,PB)
+        newpathInflows, alpha = fixedPointUpdate(N, iterFlow, pathInflows, timeHorizon, alpha,
+            timeStep, priceToTime, commodities, verbose, genPaths, foundAllFeasiblePaths, count[step], EB, PB)
         
         # original_paths = list(newpathInflows.fPlus[i].keys())
         # print("Original path lengths:", [len(P) for P in original_paths])
         for i in range(newpathInflows.getNoOfCommodities()):
-            if foundAllFeasiblePaths[i]==1: continue
+            # if foundAllFeasiblePaths[i]==1: continue
             unwrapped_fPlus = {}
             for path, flow in newpathInflows.fPlus[i].items():
                 if isinstance(path, PreserveReprWrapper):
@@ -811,6 +817,14 @@ def fixedPointAlgo(N : Network, pathList : List[Path], precision : float, commod
             theta = theta + timeStep
         travelTime.append(ttravelTime)
         qopiPathComm.append(qopiPath)
+
+    with open("testingNewPaths.txt", "w") as file:
+        file.write("Paths :\n")
+        for iteration, comm_data in enumerate(count):
+            file.write(f"Iteration {iteration}:\n")
+            for comm, flow in comm_data.items():
+                file.write(f"Comm: {comm}, Flow: {flow}\n")
+
     return pathInflows, alphaIter, absDiffBwFlowsIter, relDiffBwFlowsIter,\
             travelTime, stopStr, alphaStr, qopiIter, qopiFlowIter,\
             qopiPathComm, totDNLTime, totFPUTime
