@@ -73,15 +73,17 @@ class Node:
         else:
             return str(self.name)
 
-# A network consisting of a directed graph with capacities and travel times on all edges
 class PrioritizedItem:
-    def __init__(self, priority: float, item):
+    # constructing the class to create the first element for priority and store all other elements in items 
+    def __init__(self, priority, item):
         self.priority = priority
         self.item = item
 
+    # defining behaviour of the less than operator so that it only uses the priority to compare the objects of this class
     def __lt__(self, other):
         return self.priority < other.priority
-    
+
+    # defining behaviour of equal
     def __eq__(self, other):
         return self.priority == other.priority
     
@@ -468,55 +470,79 @@ class Network:
         
     #     return globPathList
 
-    def dsPath(self, src, dest, EB: float = float('inf'), PB: float = float('inf')) -> List[Path]:
+    def calculate_cost(self,energy: float,price: float,time: float,alpha:float,priceToTime:float)->float:
+        beta=0
+        #alpha=1
+        #priceToTime=0
+        return alpha*(time+priceToTime*price)+beta*energy
+
+    def is_charging_station(self,node: Node) -> bool:
+        return any(edge.node_to == node and edge.ec < 0 for edge in node.outgoing_edges)
+
+    def get_charging_edge(self,node: Node) -> Edge:
+        return next((edge for edge in node.outgoing_edges if edge.node_to == node and edge.ec < 0), None)
+
+    def dsPath(self, src: Node, dest: Node, EB: float = float('inf'), PB: float = float('inf'), 
+               alpha: float = 1, priceToTime: float = 0) -> List[Path]:
         globPathList = []
         pq = PriorityQueue()
-        pq.put(PrioritizedItem(0, (src, [], 0, 0)))
+        pq.put(PrioritizedItem(0, (0, src, [], 0, 0, set())))  
         
-        all_paths = {src: [(0, [], 0, 0)]}  # Stores all feasible paths for each node
+        all_paths = {src: [(0, [], 0, 0, set())]} 
         
         while not pq.empty():
             store = pq.get()
-            currTime = store.priority
-            currNode, currPath, currEnergy, currPrice = store.item
+            currCost = store.priority
+            currTime, currNode, currPath, currEnergy, currPrice, charged_stations = store.item
             
-            # If we reached the destination then we can exit the code
             if currNode == dest:
-                potential_path = Path(currPath, src)  # Creating the path
+                potential_path = Path(currPath, src)
                 if currEnergy <= EB and currPrice <= PB:
                     globPathList.append(potential_path)
                     return globPathList
-
-            # Visiting each neighbor of the current node
+            
             for outedge in currNode.outgoing_edges:
                 neighbor = outedge.node_to
                 updatedTime = currTime + outedge.tau
                 updatedEnergy = currEnergy + outedge.ec
                 updatedPrice = currPrice + outedge.price
                 updatedPath = currPath + [outedge]
+                updatedChargedStations = charged_stations.copy()
                 
-                # Checking feasibility of the new path
                 if updatedEnergy <= EB and updatedPrice <= PB:
-                    pq.put(PrioritizedItem(updatedTime, (neighbor, updatedPath, updatedEnergy, updatedPrice)))
+                    updatedCost = self.calculate_cost(updatedEnergy, updatedPrice, updatedTime, alpha, priceToTime)
+                    pq.put(PrioritizedItem(updatedCost, (updatedTime, neighbor, updatedPath, updatedEnergy, updatedPrice, updatedChargedStations)))
                     
                     if neighbor not in all_paths:
                         all_paths[neighbor] = []
-                    all_paths[neighbor].append((updatedTime, updatedPath, updatedEnergy, updatedPrice))
-                    
-                    # removing dominated paths i.e longer time with same energy/price
-                    all_paths[neighbor] = self.removeSlowEquivalentPaths(all_paths[neighbor])
+                    all_paths[neighbor].append((updatedTime, updatedPath, updatedEnergy, updatedPrice, updatedChargedStations))
 
+                if updatedEnergy <= EB and updatedPrice <= PB and self.is_charging_station(neighbor) and neighbor not in charged_stations:
+                    charging_edge = self.get_charging_edge(neighbor)
+                    if charging_edge:
+                        recharged_energy = 0
+                        recharged_price = updatedPrice + charging_edge.price
+                        recharged_time = updatedTime + charging_edge.tau
+                        recharged_path = updatedPath + [charging_edge]
+                        recharged_charged_stations = updatedChargedStations.copy()
+                        recharged_charged_stations.add(neighbor)
+
+                        recharged_cost = self.calculate_cost(recharged_energy, recharged_price, recharged_time, alpha, priceToTime)
+                        pq.put(PrioritizedItem(recharged_cost, (recharged_time, neighbor, recharged_path, recharged_energy, recharged_price, recharged_charged_stations)))
+                        
+                        all_paths[neighbor].append((recharged_time, recharged_path, recharged_energy, recharged_price, recharged_charged_stations))
+        
         return globPathList
 
-    def removeSlowEquivalentPaths(self, paths):
-        # This method removes paths that take more energy and price but take longer time
-        filtered_paths = []
-        for path in paths:
-            time, path_edges, energy, price = path
-            if not any(other_time <= time and other_energy <= energy and other_price <= price 
-                    for other_time, _, other_energy, other_price in paths):
-                filtered_paths.append(path)
-        return filtered_paths
+    # def removeSlowEquivalentPaths(self, paths):
+    #     # This method removes paths that take more energy and price but take longer time
+    #     filtered_paths = []
+    #     for path in paths:
+    #         time, path_edges, energy, price = path
+    #         if not any(other_time <= time and other_energy <= energy and other_price <= price 
+    #                 for other_time, _, other_energy, other_price in paths):
+    #             filtered_paths.append(path)
+    #     return filtered_paths
 
 
 

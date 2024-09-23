@@ -9,38 +9,6 @@ import sys, time
 import numpy as np
 import copy
 
-# def findShortestSTpath(s: Node, t: Node, flow: PartialFlow, time: number) -> Path:
-#     (arrivalTimes, realizedTimes) = dynamic_dijkstra(time, s, t, flow)
-#     p = Path([], t)
-#     while p.getStart() != s:
-#         v = p.getStart()
-#         for e in v.incoming_edges:
-#             if e in realizedTimes and arrivalTimes[e.node_from] + realizedTimes[e] == arrivalTimes[v]:
-#                 p.add_edge_at_start(e)
-#                 break
-#     return p
-
-
-# def findShortestFeasibleSTpath(time: number, s: Node, t: Node, flow:
-#         PartialFlow, budget: number) -> Path:
-#     (arrivalTimes, realizedTimes) = dynamicFeasDijkstra(time, s, t, flow, budget)
-#     for i in enumerate(arrivalTimes):
-#         print("times ", i, i[0], i[1])
-#     for i in enumerate(realizedTimes):
-#         print("times ", i, i[0], i[1])
-#     p = Path([], t)
-#     while p.getStart() != s:
-#         v = p.getStart()
-#         for e in v.incoming_edges:
-#             if e in realizedTimes and arrivalTimes[e.node_from] + realizedTimes[e] == arrivalTimes[v]:
-#                 p.add_edge_at_start(e)
-#                 break
-
-#     print("shortest ST path ", printPathInNetwork(p, flow.network))
-#     return p
-
-#countIterations=0
-
 class PrioritizedItem:
     # constructing the class to create the first element for priority and store all other elements in items 
     def __init__(self, priority, item):
@@ -51,7 +19,7 @@ class PrioritizedItem:
     def __lt__(self, other):
         return self.priority < other.priority
 
-    # defining behaviour of equal to regarding the same 
+    # defining behaviour of equal
     def __eq__(self, other):
         return self.priority == other.priority
 
@@ -62,59 +30,6 @@ def calculate_cost(energy: float,price: float,time: float,alpha:float,priceToTim
     #priceToTime=0
     return alpha*(time+priceToTime*price)+beta*energy
 
-
-# def dijkstra(nt: dict, src: Node, dest: Node, excluded_paths: set, EB: float, PB: float,alpha:float,priceToTime:float) -> Path:
-#     # Priority queue containing (cost, time , node, path as a list, total_energy spent till that node, total_price spent till that node)
-#     pq = PriorityQueue()
-#     pq.put(PrioritizedItem(0, (0, src, [], 0, 0, {src: 1}))) 
-
-#     # Dictionary to store the shortest path to each node
-#     shortest_paths = {src: (0,0, [], 0, 0)}  # cost(priority), time , path_edges, energy spent, price spent
-
-#     while not pq.empty():
-#         current_item = pq.get()
-#         combined_cost = current_item.priority
-#         current_time, current_node, current_path, current_energy, current_price, visited_nodes = current_item.item
-
-#         if current_node in shortest_paths and combined_cost>shortest_paths[current_node][0]:
-#             continue
-#         # arrived at the destination 
-#         if current_node == dest:
-#             potential_path = Path(current_path, src)                            # creating the path
-#             if potential_path not in excluded_paths:                            # making sure we have a new path
-#                 if current_energy <= EB and current_price <= PB:       
-#                     return potential_path
-#                 else:
-#                     continue
-
-#         for edge in current_node.outgoing_edges:
-#             neighbor = edge.node_to
-           
-#             if neighbor in visited_nodes:
-#                 if visited_nodes[neighbor] >= 2:
-#                     continue  # Skippint the node if its neighbor has already been visited twice
-#                 visited_nodes[neighbor] += 1
-#             else:
-#                 visited_nodes[neighbor] = 1
-
-#             updated_time = current_time + nt[edge]
-#             updated_energy = current_energy + edge.ec
-#             updated_price = current_price + edge.price
-#             updated_path = current_path + [edge]
-#             updated_cost=calculate_cost(updated_energy,updated_price,updated_time,alpha,priceToTime)
-
-#             # if we have a new node or if we are getting a faster route we update the dictionary shortest path and pq
-#             if (neighbor not in shortest_paths or updated_cost < shortest_paths[neighbor][0]) and updated_energy <= EB and updated_price <= PB:
-#                 shortest_paths[neighbor] = (updated_cost , updated_time, updated_path, updated_energy, updated_price)
-#                 pq.put(PrioritizedItem(updated_cost, (updated_time, neighbor, updated_path, updated_energy, updated_price,visited_nodes)))
-
-#             visited_nodes[neighbor]-=1
-#             if visited_nodes[neighbor]==0:
-#                 del visited_nodes[neighbor]
-
-#     # If no path is found we return none
-#     return None
-
 def is_charging_station(node: Node) -> bool:
     return any(edge.node_to == node and edge.ec < 0 for edge in node.outgoing_edges)
 
@@ -124,9 +39,6 @@ def get_charging_edge(node: Node) -> Edge:
 def dijkstra(nt: Dict[Edge, float], src: Node, dest: Node, excluded_paths: set[Path], EB: float, PB: float, alpha: float, priceToTime: float) -> Path:
     pq = PriorityQueue()
     pq.put(PrioritizedItem(0, (0, src, [], 0, 0, set())))  # Added set() for charged stations
-    #current_time, current_node, current_path, current_energy, current_price, charged_stations 
-    #all_paths = {src: [(0, 0, [], 0, 0, set())]}  # Added set() for charged stations
-    # shortest_paths = {src: (0, [], 0, 0)}  # cost, path_edges, energy spent, price spent
     shortest_paths = {src: [(0, [], 0, 0)]}
 
     while not pq.empty():
@@ -146,14 +58,6 @@ def dijkstra(nt: Dict[Edge, float], src: Node, dest: Node, excluded_paths: set[P
 
         for edge in current_node.outgoing_edges:
             neighbor = edge.node_to
-
-            # if neighbor in visited_nodes:
-            #     if visited_nodes[neighbor] >= 2:
-            #         continue
-            #     visited_nodes[neighbor] += 1
-            # else:
-            #     visited_nodes[neighbor] = 1
-
             updated_time = current_time + nt[edge]
             updated_energy = current_energy + edge.ec
             updated_price = current_price + edge.price
@@ -183,34 +87,8 @@ def dijkstra(nt: Dict[Edge, float], src: Node, dest: Node, excluded_paths: set[P
                     recharged_charged_stations.add(neighbor)
 
                     recharged_cost = calculate_cost(recharged_energy, recharged_price, recharged_time, alpha, priceToTime)
-                    # if neighbor not in shortest_paths:
-                    #     shortest_paths[neighbor] = [(recharged_cost, recharged_path, recharged_energy, recharged_price)]
-                    #     pq.put(PrioritizedItem(recharged_cost, (recharged_time, neighbor, recharged_path, recharged_energy, recharged_price, visited_nodes.copy(), recharged_charged_stations)))
-                    # else:
-                        # Always add the recharged path as an alternative
                     shortest_paths[neighbor].append((recharged_cost, recharged_path, recharged_energy, recharged_price))
                     pq.put(PrioritizedItem(recharged_cost, (recharged_time, neighbor, recharged_path, recharged_energy, recharged_price, recharged_charged_stations)))
-
-
-            # # Checking if it's a charging station and hasn't been used before
-            # if is_charging_station(neighbor) and neighbor not in charged_stations:
-            #     charging_edge = get_charging_edge(neighbor)
-            #     if charging_edge:
-            #         updated_energy = EB  # Recharging
-            #         updated_price += charging_edge.price
-            #         updated_time += nt[charging_edge]
-            #         updated_charged_stations.add(neighbor)
-            #         updated_path.append(charging_edge)
-
-            # updated_cost = calculate_cost(updated_energy, updated_price, updated_time, alpha, priceToTime)
-
-            # if ((neighbor not in shortest_paths) or (updated_cost < shortest_paths[neighbor][0])) and updated_energy <= EB and updated_price <= PB:
-            #     shortest_paths[neighbor] = (updated_cost, updated_path, updated_energy, updated_price)
-            #     pq.put(PrioritizedItem(updated_cost, (updated_time, neighbor, updated_path, updated_energy, updated_price, visited_nodes, updated_charged_stations)))
-                
-            # visited_nodes[neighbor] -= 1
-            # if visited_nodes[neighbor] == 0:
-            #     del visited_nodes[neighbor]
 
     return None
 
