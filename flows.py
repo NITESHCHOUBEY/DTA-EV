@@ -332,15 +332,10 @@ class PartialFlowPathBased:
     
     
     def addPath(self, commodity: int, path: Path, flow_function: PWConst):
-        """
-        Add a new path for a specific commodity with a given flow function.
         
-        Args:
-        commodity (int): The ID of the commodity.
-        path (Path): The new path to be added.
-        flow_function (PWConst): The flow function for the new path.
-        """
-        assert 0 <= commodity < self.noOfCommodities, "Invalid commodity ID"
+        # Add a new path for a specific commodity with a given flow function.
+        
+        assert 0 <= commodity < self.noOfCommodities, "Invalid commodity "
         
         # Check if the path is valid for the commodity
         if self.sources[commodity] is None or self.sinks[commodity] is None:

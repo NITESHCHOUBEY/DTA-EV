@@ -167,7 +167,7 @@ if __name__ == "__main__":
     # Start
     tStart = time.time()
     f, alphaIter, absDiffBwFlowsIter, relDiffBwFlowsIter, travelTime, stopStr,\
-            alphaStr, qopiIter, qopiFlowIter, qopiPathComm, totDNLTime, totFPUTime =\
+            alphaStr, qopiIter, qopiFlowIter, qopiPathComm, totDNLTime, totFPUTime, TTprogression  =\
             fixedPointAlgo(G, pathList, precision, commodities, timeHorizon,\
             maxIter, timeLimit, timeStep, alpha, priceToTime,energyBudget,priceBudget, True)
 
@@ -176,6 +176,33 @@ if __name__ == "__main__":
         # print("comm ", i,s,t,eb,pb,u)
         # for tt in travelTime[i]:
             # print([round(float(a),4) for a in tt])
+
+    # storing the time taken by a commodity in different paths to check for equilibrium
+    outputDir = "timeProgression"
+    os.makedirs(outputDir, exist_ok=True)
+
+    # Iterating over each commodity
+    for commodity in range(len(commodities)):
+        filename = os.path.join(outputDir, f'TTPCommodities{commodity}.csv')
+        
+        with open(filename, 'w', newline='') as csvfile:
+            writer = csv.writer(csvfile)
+            all_paths = set()
+            for travel_times in TTprogression[commodity]:
+                all_paths.update(travel_times.keys())
+            all_paths = sorted(all_paths) 
+            header = ['Iteration'] + all_paths
+            writer.writerow(header)
+            for iteration, travel_times in enumerate(TTprogression[commodity]):
+                row = [iteration]
+                for path in all_paths:
+                    travel_time = travel_times.get(path, 'N/A')
+                    if isinstance(travel_time, float):
+                        travel_time = f"{travel_time:.2f}"
+                    row.append(travel_time)
+                writer.writerow(row)
+
+    print(f"Travel time data in tabular format written to CSV files in the '{outputDir}' directory.")
     eventualFlow = networkLoading(f)
     # print("eventualFlow: ", eventualFlow)
     # print("Number of paths in f: ", sum([len(f.fPlus[i]) for i in

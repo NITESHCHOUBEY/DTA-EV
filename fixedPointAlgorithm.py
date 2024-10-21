@@ -496,6 +496,8 @@ def fixedPointAlgo(N : Network, pathList : List[Path], precision : float, commod
     totDNLTime += time.time()-tStart
     print("\nTime taken in networkLoading(): ", round(time.time()-tStart,4))
 
+    travelTimeProgression = {i: [] for i in range(len(commodities))} 
+
     ## Iteration:
     while not shouldStop:
         if verbose: print("STARTING ITERATION #", step)
@@ -521,6 +523,14 @@ def fixedPointAlgo(N : Network, pathList : List[Path], precision : float, commod
                 else:
                     unwrapped_fPlus[path] = flow
             newpathInflows.fPlus[i] = unwrapped_fPlus
+
+        # the following loop stores the time taken by the commodity in a path after every iteration
+        for i in range(len(commodities)):
+            commodityTravelTimeProgression = {}
+            for path in newpathInflows.fPlus[i]:
+                travel_time = iterFlow.pathArrivalTime(path, 0)
+                commodityTravelTimeProgression[N.printPathInNetwork(path)] = float(travel_time)
+            travelTimeProgression[i].append(commodityTravelTimeProgression)
 
 
         # print("new path is")
@@ -705,4 +715,4 @@ def fixedPointAlgo(N : Network, pathList : List[Path], precision : float, commod
 
     return pathInflows, alphaIter, absDiffBwFlowsIter, relDiffBwFlowsIter,\
             travelTime, stopStr, alphaStr, qopiIter, qopiFlowIter,\
-            qopiPathComm, totDNLTime, totFPUTime
+            qopiPathComm, totDNLTime, totFPUTime, travelTimeProgression
