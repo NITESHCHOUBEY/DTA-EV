@@ -167,7 +167,7 @@ if __name__ == "__main__":
     # Start
     tStart = time.time()
     f, alphaIter, absDiffBwFlowsIter, relDiffBwFlowsIter, travelTime, stopStr,\
-            alphaStr, qopiIter, qopiFlowIter, qopiPathComm, totDNLTime, totFPUTime, TTprogression  =\
+            alphaStr, qopiIter, qopiFlowIter, qopiPathComm, totDNLTime, totFPUTime, travelTimeProgression  =\
             fixedPointAlgo(G, pathList, precision, commodities, timeHorizon,\
             maxIter, timeLimit, timeStep, alpha, priceToTime,energyBudget,priceBudget, True)
 
@@ -181,28 +181,27 @@ if __name__ == "__main__":
     outputDir = "timeProgression"
     os.makedirs(outputDir, exist_ok=True)
 
-    # Iterating over each commodity
     for commodity in range(len(commodities)):
         filename = os.path.join(outputDir, f'TTPCommodities{commodity}.csv')
-        
         with open(filename, 'w', newline='') as csvfile:
             writer = csv.writer(csvfile)
-            all_paths = set()
-            for travel_times in TTprogression[commodity]:
-                all_paths.update(travel_times.keys())
-            all_paths = sorted(all_paths) 
-            header = ['Iteration'] + all_paths
+
+            all_theta_values = sorted({theta for step_data in travelTimeProgression[commodity].values()
+                                    for theta in step_data})
+
+            header = ['Iteration', 'Path'] + [f"Theta {theta:.2f}" for theta in all_theta_values]
             writer.writerow(header)
-            for iteration, travel_times in enumerate(TTprogression[commodity]):
-                row = [iteration]
-                for path in all_paths:
-                    travel_time = travel_times.get(path, 'N/A')
-                    if isinstance(travel_time, float):
-                        travel_time = f"{travel_time:.2f}"
-                    row.append(travel_time)
-                writer.writerow(row)
+
+            for step, theta_dict in travelTimeProgression[commodity].items():
+                for path in {p for theta_data in theta_dict.values() for p in theta_data}:
+                    row = [step, path] 
+                    for theta in all_theta_values:
+                        travel_time = theta_dict.get(theta, {}).get(path, 'N/A')
+                        row.append(f"{travel_time:.2f}" if isinstance(travel_time, float) else 'N/A')
+                    writer.writerow(row)
 
     print(f"Travel time data in tabular format written to CSV files in the '{outputDir}' directory.")
+
     eventualFlow = networkLoading(f)
     # print("eventualFlow: ", eventualFlow)
     # print("Number of paths in f: ", sum([len(f.fPlus[i]) for i in
