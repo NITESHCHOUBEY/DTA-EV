@@ -12,6 +12,54 @@ import csv
 
 # For reading graphs
 import networkx as nx
+import pandas as pd
+
+
+def group_iterations_by_path_for_commodities_and_paths(input_dir):
+    """
+    Groups all iterations of paths for each commodity into separate Excel files, with paths split into different files.
+
+    Args:
+    - input_dir (str): Directory containing input CSV files.
+    """
+    # Create an output directory for the results
+    output_dir = "GroupedPaths"
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Iterate over the files in the input directory
+    for filename in os.listdir(input_dir):
+        if filename.endswith('.csv'):
+            file_path = os.path.join(input_dir, filename)
+            
+            # Extract commodity index from the filename (e.g., 'TTPCommodities0.csv' -> commodity 0)
+            commodity_index = int(filename.replace('TTPCommodities', '').replace('.csv', ''))
+            
+            # Read the CSV file for the current commodity
+            data = pd.read_csv(file_path)
+
+            # Ensure necessary columns are present
+            if 'Path' not in data.columns or 'Iteration' not in data.columns:
+                raise ValueError(f"CSV file {filename} must contain 'Path' and 'Iteration' columns.")
+            
+            # Sort data by Path and Iteration
+            grouped_data = data.sort_values(by=['Path', 'Iteration'])
+
+            # Create a directory for each commodity
+            commodity_output_dir = os.path.join(output_dir, f"Commodity_{commodity_index}")
+            os.makedirs(commodity_output_dir, exist_ok=True)
+
+            # Save the grouped data to a commodity-specific Excel file
+            output_excel = os.path.join(commodity_output_dir, f"ConvergenceCheck_Commodity_{commodity_index}.xlsx")
+            grouped_data.to_excel(output_excel, index=False)
+            print(f"Grouped data for commodity {commodity_index} saved to {output_excel}")
+            
+            # Now, create separate CSV files for each path
+            paths = grouped_data['Path'].unique()
+            for path in paths:
+                path_data = grouped_data[grouped_data['Path'] == path]
+                path_file = os.path.join(commodity_output_dir, f"Path_{path}.csv")
+                path_data.to_csv(path_file, index=False)
+                print(f"Path data for {path} saved to {path_file}")
 
 def readArgs(argv):
     # Arguments passed
@@ -201,6 +249,9 @@ if __name__ == "__main__":
                     writer.writerow(row)
 
     print(f"Travel time data in tabular format written to CSV files in the '{outputDir}' directory.")
+
+    input_directory = "timeProgression"  # Directory where CSV files are saved
+    group_iterations_by_path_for_commodities_and_paths(input_directory)
 
     eventualFlow = networkLoading(f)
     # print("eventualFlow: ", eventualFlow)
