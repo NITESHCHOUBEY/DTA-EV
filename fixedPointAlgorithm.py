@@ -54,7 +54,7 @@ def dijkstra(nt: Dict[Edge, float], src: Node, dest: Node, excluded_paths: set[P
                 else:
                     continue
             else:
-                return None #Confirm this?
+                return None
 
         for edge in current_node.outgoing_edges:
             neighbor = edge.node_to
@@ -71,7 +71,7 @@ def dijkstra(nt: Dict[Edge, float], src: Node, dest: Node, excluded_paths: set[P
                     shortest_paths[neighbor] = [(updated_cost, updated_path, updated_energy, updated_price)]
                     pq.put(PrioritizedItem(updated_cost, (updated_time, neighbor, updated_path, updated_energy, updated_price, updated_charged_stations)))
                 else:
-                    if all(updated_cost < path[0] for path in shortest_paths[neighbor]):
+                    if all(updated_cost <= path[0] for path in shortest_paths[neighbor]):
                         shortest_paths[neighbor].append((updated_cost, updated_path, updated_energy, updated_price))
                         pq.put(PrioritizedItem(updated_cost, (updated_time, neighbor, updated_path, updated_energy, updated_price, updated_charged_stations)))
             
